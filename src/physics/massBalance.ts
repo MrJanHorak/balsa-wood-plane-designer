@@ -5,17 +5,31 @@ import { GliderDesign, GliderMassBreakdown } from '@/types/glider';
  * Returns normalized vertices (X: 0->length, Y: 0->height)
  */
 export function getFuselageProfilePoints(fuselage: GliderDesign['fuselage']): { x: number; y: number }[] {
-  const { lengthMm, maxHeightMm, noseLengthMm, noseHeightMm, tailBoomHeightMm, profileStyle } = fuselage;
+  // 1. Custom Draggable Nodes Mode
+  if (fuselage.profileStyle === 'custom' && fuselage.customNodes && fuselage.customNodes.length >= 3) {
+    return fuselage.customNodes.map((n) => ({ x: n.xMm, y: n.yMm }));
+  }
 
+  const { lengthMm, maxHeightMm, noseLengthMm, noseHeightMm, tailBoomHeightMm, profileStyle, wingSlot, mountType, autoReinforceSpine } = fuselage;
+
+  // Calculate required spine reinforcement height for through-slot
+  const slotTopY = wingSlot.yPositionMm + wingSlot.thicknessMm / 2 + 2;
+  const minRequiredSpineY = (mountType === 'through_slot' && autoReinforceSpine)
+    ? slotTopY + 6.0 // Minimum 6mm solid balsa wood bridge above slot
+    : maxHeightMm;
+
+  const effectiveMaxHeight = Math.max(maxHeightMm, minRequiredSpineY);
   const nosePeakX = noseLengthMm;
-  const wingY = fuselage.wingSlot.yPositionMm;
+  const wingX = wingSlot.xPositionMm;
+  const wingLen = wingSlot.lengthMm;
 
   if (profileStyle === 'sport_jet') {
     return [
       { x: 0, y: noseHeightMm * 0.4 },
-      { x: nosePeakX * 0.4, y: maxHeightMm * 0.8 },
-      { x: nosePeakX, y: maxHeightMm },
-      { x: lengthMm * 0.6, y: maxHeightMm * 0.7 },
+      { x: nosePeakX * 0.4, y: effectiveMaxHeight * 0.8 },
+      { x: nosePeakX, y: effectiveMaxHeight },
+      { x: wingX + wingLen * 0.5, y: Math.max(effectiveMaxHeight, slotTopY + 5) },
+      { x: lengthMm * 0.6, y: effectiveMaxHeight * 0.7 },
       { x: lengthMm * 0.85, y: tailBoomHeightMm * 1.5 },
       { x: lengthMm, y: tailBoomHeightMm },
       { x: lengthMm, y: 0 },
@@ -28,9 +42,10 @@ export function getFuselageProfilePoints(fuselage: GliderDesign['fuselage']): { 
   if (profileStyle === 'sky_streak') {
     return [
       { x: 0, y: noseHeightMm * 0.5 },
-      { x: nosePeakX * 0.5, y: maxHeightMm * 0.9 },
-      { x: nosePeakX, y: maxHeightMm },
-      { x: nosePeakX + 80, y: maxHeightMm * 0.6 },
+      { x: nosePeakX * 0.5, y: effectiveMaxHeight * 0.9 },
+      { x: nosePeakX, y: effectiveMaxHeight },
+      { x: wingX + wingLen * 0.5, y: Math.max(effectiveMaxHeight, slotTopY + 5) },
+      { x: Math.min(lengthMm * 0.6, wingX + wingLen + 30), y: effectiveMaxHeight * 0.6 },
       { x: lengthMm * 0.75, y: tailBoomHeightMm * 1.2 },
       { x: lengthMm, y: tailBoomHeightMm },
       { x: lengthMm, y: 0 },
@@ -38,13 +53,15 @@ export function getFuselageProfilePoints(fuselage: GliderDesign['fuselage']): { 
     ];
   }
 
-  // Default 'trainer' / 'curved_classic'
+  // Default 'trainer' / 'curved_classic' with intelligent adaptive wing saddle/pylon
+  const pylonPeakY = Math.max(effectiveMaxHeight, slotTopY + 6);
   return [
     { x: 0, y: noseHeightMm * 0.5 },
     { x: nosePeakX * 0.3, y: noseHeightMm * 0.9 },
-    { x: nosePeakX * 0.7, y: maxHeightMm * 0.95 },
-    { x: nosePeakX, y: maxHeightMm },
-    { x: nosePeakX + 40, y: Math.max(wingY + 8, maxHeightMm * 0.85) },
+    { x: nosePeakX * 0.7, y: pylonPeakY * 0.95 },
+    { x: Math.min(nosePeakX, wingX - 5), y: pylonPeakY },
+    { x: wingX + wingLen * 0.5, y: pylonPeakY },
+    { x: wingX + wingLen + 15, y: Math.max(wingSlot.yPositionMm + 4, pylonPeakY * 0.8) },
     { x: lengthMm * 0.65, y: tailBoomHeightMm * 1.6 },
     { x: lengthMm * 0.9, y: tailBoomHeightMm * 1.1 },
     { x: lengthMm, y: tailBoomHeightMm },

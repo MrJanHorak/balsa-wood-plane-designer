@@ -15,6 +15,9 @@ export const GLIDER_PRESETS: Record<string, GliderDesign> = {
       noseHeightMm: 22,
       tailBoomHeightMm: 10,
       thicknessMm: 3.175, // 1/8" fuselage
+      mountType: 'through_slot',
+      autoReinforceSpine: true,
+      pylonWidthMm: 24,
       wingSlot: {
         xPositionMm: 72,
         yPositionMm: 28,
@@ -34,6 +37,7 @@ export const GLIDER_PRESETS: Record<string, GliderDesign> = {
       profileStyle: 'trainer',
     },
     wing: {
+      planformType: 'tapered',
       spanMm: 340,
       rootChordMm: 60,
       tipChordMm: 45,
@@ -76,9 +80,12 @@ export const GLIDER_PRESETS: Record<string, GliderDesign> = {
       noseHeightMm: 18,
       tailBoomHeightMm: 8,
       thicknessMm: 2.38,
+      mountType: 'parasol_pylon',
+      autoReinforceSpine: true,
+      pylonWidthMm: 20,
       wingSlot: {
         xPositionMm: 80,
-        yPositionMm: 26,
+        yPositionMm: 38, // slightly elevated parasol
         angleDeg: 2.5,
         lengthMm: 52,
         thicknessMm: 1.7,
@@ -95,6 +102,7 @@ export const GLIDER_PRESETS: Record<string, GliderDesign> = {
       profileStyle: 'sky_streak',
     },
     wing: {
+      planformType: 'rectangular',
       spanMm: 440,
       rootChordMm: 52,
       tipChordMm: 36,
@@ -137,6 +145,9 @@ export const GLIDER_PRESETS: Record<string, GliderDesign> = {
       noseHeightMm: 16,
       tailBoomHeightMm: 12,
       thicknessMm: 3.175,
+      mountType: 'through_slot',
+      autoReinforceSpine: true,
+      pylonWidthMm: 22,
       wingSlot: {
         xPositionMm: 75,
         yPositionMm: 25,
@@ -156,6 +167,7 @@ export const GLIDER_PRESETS: Record<string, GliderDesign> = {
       profileStyle: 'sport_jet',
     },
     wing: {
+      planformType: 'delta',
       spanMm: 280,
       rootChordMm: 72,
       tipChordMm: 34,

@@ -70,26 +70,28 @@ export function createFuselageMesh(glider: GliderDesign, balsaMaterial: THREE.Ma
     shape.closePath();
   }
 
-  // Create Wing Slot Hole
-  const ws = fuselage.wingSlot;
-  const wingSlotHole = new THREE.Path();
-  const wAngleRad = (ws.angleDeg * Math.PI) / 180;
-  const cosW = Math.cos(wAngleRad);
-  const sinW = Math.sin(wAngleRad);
-  const halfThick = ws.thicknessMm / 2;
+  // Only add wing slot hole if mountType is through_slot
+  if (fuselage.mountType === 'through_slot') {
+    const ws = fuselage.wingSlot;
+    const wingSlotHole = new THREE.Path();
+    const wAngleRad = (ws.angleDeg * Math.PI) / 180;
+    const cosW = Math.cos(wAngleRad);
+    const sinW = Math.sin(wAngleRad);
+    const halfThick = ws.thicknessMm / 2;
 
-  // 4 corners of slot rotated by angle
-  const p0 = { x: ws.xPositionMm, y: ws.yPositionMm - halfThick };
-  const p1 = { x: ws.xPositionMm + ws.lengthMm * cosW, y: ws.yPositionMm + ws.lengthMm * sinW - halfThick };
-  const p2 = { x: ws.xPositionMm + ws.lengthMm * cosW, y: ws.yPositionMm + ws.lengthMm * sinW + halfThick };
-  const p3 = { x: ws.xPositionMm, y: ws.yPositionMm + halfThick };
+    // 4 corners of slot rotated by angle
+    const p0 = { x: ws.xPositionMm, y: ws.yPositionMm - halfThick };
+    const p1 = { x: ws.xPositionMm + ws.lengthMm * cosW, y: ws.yPositionMm + ws.lengthMm * sinW - halfThick };
+    const p2 = { x: ws.xPositionMm + ws.lengthMm * cosW, y: ws.yPositionMm + ws.lengthMm * sinW + halfThick };
+    const p3 = { x: ws.xPositionMm, y: ws.yPositionMm + halfThick };
 
-  wingSlotHole.moveTo(p0.x, p0.y);
-  wingSlotHole.lineTo(p1.x, p1.y);
-  wingSlotHole.lineTo(p2.x, p2.y);
-  wingSlotHole.lineTo(p3.x, p3.y);
-  wingSlotHole.closePath();
-  shape.holes.push(wingSlotHole);
+    wingSlotHole.moveTo(p0.x, p0.y);
+    wingSlotHole.lineTo(p1.x, p1.y);
+    wingSlotHole.lineTo(p2.x, p2.y);
+    wingSlotHole.lineTo(p3.x, p3.y);
+    wingSlotHole.closePath();
+    shape.holes.push(wingSlotHole);
+  }
 
   // Create Tail Slot Hole
   const ts = fuselage.tailSlot;
@@ -129,6 +131,34 @@ export function createFuselageMesh(glider: GliderDesign, balsaMaterial: THREE.Ma
   mesh.receiveShadow = true;
   group.add(mesh);
 
+  // Add Parasol Cabane Pylon if wing is elevated
+  if (fuselage.mountType === 'parasol_pylon') {
+    const ws = fuselage.wingSlot;
+    const pylonShape = new THREE.Shape();
+    const pylonW = fuselage.pylonWidthMm || 24;
+    const startX = ws.xPositionMm + (ws.lengthMm - pylonW) / 2;
+    const baseSpineY = Math.min(fuselage.maxHeightMm, ws.yPositionMm);
+    const topPylonY = ws.yPositionMm;
+
+    pylonShape.moveTo(startX, baseSpineY - 4);
+    pylonShape.lineTo(startX + pylonW, baseSpineY - 4);
+    pylonShape.lineTo(startX + pylonW * 0.9, topPylonY);
+    pylonShape.lineTo(startX + pylonW * 0.1, topPylonY);
+    pylonShape.closePath();
+
+    const pylonGeom = new THREE.ExtrudeGeometry(pylonShape, {
+      depth: fuselage.thicknessMm,
+      bevelEnabled: true,
+      bevelSegments: 1,
+      bevelSize: 0.2,
+      bevelThickness: 0.2,
+    });
+    pylonGeom.translate(0, 0, -fuselage.thicknessMm / 2);
+    const pylonMesh = new THREE.Mesh(pylonGeom, balsaMaterial);
+    pylonMesh.castShadow = true;
+    group.add(pylonMesh);
+  }
+
   return group;
 }
 
@@ -142,22 +172,65 @@ export function createWingMesh(glider: GliderDesign, balsaMaterial: THREE.Materi
   const { wing, fuselage } = glider;
   const halfSpan = wing.spanMm / 2;
   const cr = wing.rootChordMm;
-  const ct = wing.tipChordMm;
+  const ct = wing.planformType === 'rectangular' ? cr : wing.tipChordMm;
   const sweepRad = (wing.sweepDeg * Math.PI) / 180;
   const sweepOffsetAtTip = halfSpan * Math.tan(sweepRad);
 
-  // Wing Panel 2D Shape (root chord at X=0..cr, tip chord at Z=halfSpan, X=sweepOffset..(sweepOffset+ct))
-  // We'll create one half-wing shape in X-Z local plane and extrude Y:
+  // Wing Panel 2D Shape in X-Z plane
   function createHalfWingGeometry(): THREE.BufferGeometry {
     const shape = new THREE.Shape();
-    // Root Leading edge
-    shape.moveTo(0, 0);
-    // Root Trailing edge
-    shape.lineTo(cr, 0);
-    // Tip Trailing edge
-    shape.lineTo(ct + sweepOffsetAtTip, halfSpan);
-    // Tip Leading edge
-    shape.lineTo(sweepOffsetAtTip, halfSpan);
+
+    if (wing.planformType === 'elliptical') {
+      // Sample elliptical planform
+      const segments = 16;
+      const tePoints: { x: number; z: number }[] = [];
+      const lePoints: { x: number; z: number }[] = [];
+
+      for (let i = 0; i <= segments; i++) {
+        const t = i / segments; // 0 at root, 1 at tip
+        const z = t * halfSpan;
+        const ellipseFactor = Math.sqrt(Math.max(0, 1 - t * t));
+        const chordAtZ = Math.max(ct * 0.4, cr * ellipseFactor);
+        const sweepZ = z * Math.tan(sweepRad);
+
+        // Standard aerodynamic quarter-chord locus
+        const leX = sweepZ + 0.25 * (cr - chordAtZ);
+        const teX = leX + chordAtZ;
+
+        lePoints.push({ x: leX, z });
+        tePoints.push({ x: teX, z });
+      }
+
+      shape.moveTo(lePoints[0].x, lePoints[0].z);
+      for (let i = 1; i <= segments; i++) {
+        shape.lineTo(lePoints[i].x, lePoints[i].z);
+      }
+      for (let i = segments; i >= 0; i--) {
+        shape.lineTo(tePoints[i].x, tePoints[i].z);
+      }
+      shape.closePath();
+    } else {
+      // Tapered, Rectangular, or Delta
+      shape.moveTo(0, 0);
+      shape.lineTo(cr, 0);
+      shape.lineTo(ct + sweepOffsetAtTip, halfSpan);
+      shape.lineTo(sweepOffsetAtTip, halfSpan);
+      shape.closePath();
+    }
+
+    const extrudeSettings: THREE.ExtrudeGeometryOptions = {
+      depth: wing.thicknessMm,
+      bevelEnabled: true,
+      bevelSegments: 1,
+      steps: 1,
+      bevelSize: 0.2,
+      bevelThickness: 0.2,
+    };
+
+    const geom = new THREE.ExtrudeGeometry(shape, extrudeSettings);
+    geom.rotateX(-Math.PI / 2);
+    return geom;
+  }
     shape.closePath();
 
     const extrudeSettings: THREE.ExtrudeGeometryOptions = {

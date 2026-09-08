@@ -7,6 +7,16 @@ export interface BalsaMaterial {
   grainOrientation: 'spanwise' | 'chordwise';
 }
 
+export type WingMountType = 'through_slot' | 'top_saddle' | 'parasol_pylon' | 'bottom_saddle';
+
+export interface FuselageNode {
+  id: string;
+  label: string;
+  xMm: number;
+  yMm: number;
+  isFixed?: boolean;
+}
+
 export interface WingSlotConfig {
   xPositionMm: number;        // Distance from nose tip to wing leading edge slot (mm)
   yPositionMm: number;        // Height from fuselage bottom reference (mm)
@@ -30,14 +40,21 @@ export interface FuselageConfig {
   noseHeightMm: number;       // Height at nose tip
   tailBoomHeightMm: number;   // Height at tail end
   thicknessMm: number;        // Fuselage sheet balsa thickness
+  mountType: WingMountType;   // 'through_slot' | 'top_saddle' | 'parasol_pylon' | 'bottom_saddle'
+  autoReinforceSpine: boolean;// Automatically maintain minimum solid wood over/under wing slot
+  pylonWidthMm: number;       // Width of cabane strut if parasol_pylon
   wingSlot: WingSlotConfig;
   tailSlot: TailSlotConfig;
   noseBallastGrams: number;   // Added nose trim weight (clay or ballast clip)
   ballastPositionXMm: number; // Center of ballast from nose (e.g. 10mm)
-  profileStyle: 'trainer' | 'sport_jet' | 'curved_classic' | 'sky_streak';
+  profileStyle: 'trainer' | 'sport_jet' | 'curved_classic' | 'sky_streak' | 'custom';
+  customNodes?: FuselageNode[]; // Draggable control nodes for custom profile
 }
 
+export type WingPlanformType = 'tapered' | 'rectangular' | 'elliptical' | 'delta';
+
 export interface WingConfig {
+  planformType: WingPlanformType;
   spanMm: number;             // Total wingspan tip-to-tip
   rootChordMm: number;        // Center chord
   tipChordMm: number;         // Wingtip chord
