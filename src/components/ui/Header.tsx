@@ -32,7 +32,7 @@ export const Header: React.FC<HeaderProps> = ({
         <div>
           <div className="flex items-center gap-2">
             <h1 className="font-black text-lg tracking-tight bg-gradient-to-r from-amber-300 via-amber-200 to-slate-100 bg-clip-text text-transparent">
-              BalsaPlainSite
+              BalsaPlaneDesigner
             </h1>
             <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 uppercase tracking-wider">
               Phase 1 MVP
