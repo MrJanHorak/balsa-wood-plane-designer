@@ -1,4 +1,4 @@
-import { GliderAeroReport, GliderDesign, StabilityStatus } from '@/types/glider';
+import { GliderAeroReport, GliderDesign, StabilityStatus, getEffectiveTipChordMm } from '@/types/glider';
 import { calculateGliderMassAndCG } from './massBalance';
 import { calculateNeutralPoint, computeSurfaceAerodynamics } from './aerodynamics';
 
@@ -10,7 +10,7 @@ export function analyzeGliderStability(glider: GliderDesign): GliderAeroReport {
   // 2. Calculate Wing Aerodynamics
   const wingAero = computeSurfaceAerodynamics(
     glider.wing.rootChordMm,
-    glider.wing.tipChordMm,
+    getEffectiveTipChordMm(glider.wing),
     glider.wing.spanMm,
     glider.wing.sweepDeg,
     glider.fuselage.wingSlot.xPositionMm,

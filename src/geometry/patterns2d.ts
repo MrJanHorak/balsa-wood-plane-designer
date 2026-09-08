@@ -1,4 +1,4 @@
-import { GliderDesign } from '@/types/glider';
+import { GliderDesign, getEffectiveTipChordMm } from '@/types/glider';
 import { getFuselageProfilePoints } from '@/physics/massBalance';
 
 export interface FlatPartSvg {
@@ -119,7 +119,7 @@ export function generateWingFlatPattern(glider: GliderDesign): FlatPartSvg {
   const { wing } = glider;
   const halfSpan = wing.spanMm / 2;
   const cr = wing.rootChordMm;
-  const ct = wing.planformType === 'rectangular' ? cr : wing.tipChordMm;
+  const ct = getEffectiveTipChordMm(wing);
   const sweepRad = (wing.sweepDeg * Math.PI) / 180;
   const sweepOffset = halfSpan * Math.tan(sweepRad);
 

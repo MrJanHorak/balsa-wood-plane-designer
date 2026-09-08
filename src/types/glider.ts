@@ -67,6 +67,18 @@ export interface WingConfig {
   hasLeadingEdgeTaper: boolean;
 }
 
+/**
+ * The effective tip chord to use for area, MAC, and geometry calculations.
+ * Rectangular wings are defined by root chord alone — tipChordMm is ignored
+ * (and stays stale in state as the user tweaks other sliders), so every
+ * consumer of tip chord (physics AND geometry) must read through this
+ * helper rather than wing.tipChordMm directly, or the rendered shape and
+ * the stability math can silently disagree.
+ */
+export function getEffectiveTipChordMm(wing: Pick<WingConfig, 'planformType' | 'rootChordMm' | 'tipChordMm'>): number {
+  return wing.planformType === 'rectangular' ? wing.rootChordMm : wing.tipChordMm;
+}
+
 export interface TailConfig {
   spanMm: number;             // Horizontal stabilizer span
   rootChordMm: number;        // Root chord

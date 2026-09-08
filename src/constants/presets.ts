@@ -97,7 +97,7 @@ export const GLIDER_PRESETS: Record<string, GliderDesign> = {
         lengthMm: 30,
         thicknessMm: 1.7,
       },
-      noseBallastGrams: 0.9,
+      noseBallastGrams: 1.2,
       ballastPositionXMm: 10,
       profileStyle: 'sky_streak',
     },
@@ -105,7 +105,10 @@ export const GLIDER_PRESETS: Record<string, GliderDesign> = {
       planformType: 'rectangular',
       spanMm: 440,
       rootChordMm: 52,
-      tipChordMm: 36,
+      // Rectangular planform: tip chord equals root chord — the geometry engine
+      // enforces this visually, so this value must match to keep the physics
+      // (wing area, mass, CG) consistent with what actually gets rendered/cut.
+      tipChordMm: 52,
       sweepDeg: 2,
       dihedralDeg: 7.5,
       camberPercent: 4.5,

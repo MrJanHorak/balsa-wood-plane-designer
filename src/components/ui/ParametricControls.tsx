@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { GliderDesign, UIMode, WingMountType } from '@/types/glider';
+import { GliderDesign, UIMode, WingMountType, WingPlanformType } from '@/types/glider';
 import { SliderInput } from '@/components/common/SliderInput';
 import { Plane, Sliders, Shield, Weight } from 'lucide-react';
 
@@ -10,6 +10,13 @@ const MOUNT_TYPE_OPTIONS: { value: WingMountType; label: string; simpleLabel: st
   { value: 'top_saddle', label: 'Top Saddle', simpleLabel: 'Wing on Top' },
   { value: 'parasol_pylon', label: 'Parasol Pylon', simpleLabel: 'Wing on Strut' },
   { value: 'bottom_saddle', label: 'Bottom Saddle', simpleLabel: 'Wing Underneath' },
+];
+
+const PLANFORM_OPTIONS: { value: WingPlanformType; label: string; simpleLabel: string }[] = [
+  { value: 'rectangular', label: 'Rectangular', simpleLabel: 'Straight' },
+  { value: 'tapered', label: 'Tapered', simpleLabel: 'Tapered' },
+  { value: 'elliptical', label: 'Elliptical', simpleLabel: 'Curved (Spitfire)' },
+  { value: 'delta', label: 'Delta', simpleLabel: 'Triangle (Delta)' },
 ];
 
 interface ParametricControlsProps {
@@ -125,6 +132,27 @@ export const ParametricControls: React.FC<ParametricControlsProps> = ({
         {/* 1. Main Wing Section */}
         {activeSection === 'wing' && (
           <div>
+            <div className="py-2 border-b border-slate-800/60 space-y-1.5 mb-2">
+              <span className="text-xs font-semibold text-slate-200 block">
+                {isSimple ? 'Wing Shape' : 'Planform Type'}
+              </span>
+              <div className="grid grid-cols-2 gap-1.5">
+                {PLANFORM_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.value}
+                    onClick={() => updateWing({ planformType: opt.value })}
+                    className={`py-1.5 px-1.5 text-[11px] font-semibold rounded-md border transition-colors ${
+                      glider.wing.planformType === opt.value
+                        ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-md'
+                        : 'bg-slate-800/60 text-slate-300 border-slate-700 hover:bg-slate-800'
+                    }`}
+                  >
+                    {isSimple ? opt.simpleLabel : opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <SliderInput
               label="Wingspan (b)"
               simpleLabel="Wing Width (Span)"
@@ -151,18 +179,20 @@ export const ParametricControls: React.FC<ParametricControlsProps> = ({
               onChange={(v) => updateWing({ rootChordMm: v })}
             />
 
-            <SliderInput
-              label="Tip Chord (c_t)"
-              simpleLabel="Wingtip Width"
-              value={glider.wing.tipChordMm}
-              min={20}
-              max={80}
-              step={1}
-              unit="mm"
-              description="Width at wingtips. Tapered tips reduce induced drag."
-              isSimpleMode={isSimple}
-              onChange={(v) => updateWing({ tipChordMm: v })}
-            />
+            {glider.wing.planformType !== 'rectangular' && (
+              <SliderInput
+                label="Tip Chord (c_t)"
+                simpleLabel="Wingtip Width"
+                value={glider.wing.tipChordMm}
+                min={20}
+                max={80}
+                step={1}
+                unit="mm"
+                description="Width at wingtips. Tapered tips reduce induced drag."
+                isSimpleMode={isSimple}
+                onChange={(v) => updateWing({ tipChordMm: v })}
+              />
+            )}
 
             <SliderInput
               label="Dihedral Angle (Γ)"

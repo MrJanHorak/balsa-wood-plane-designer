@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { GliderDesign } from '@/types/glider';
+import { GliderDesign, getEffectiveTipChordMm } from '@/types/glider';
 import { getFuselageProfilePoints } from '@/physics/massBalance';
 
 /**
@@ -172,7 +172,7 @@ export function createWingMesh(glider: GliderDesign, balsaMaterial: THREE.Materi
   const { wing, fuselage } = glider;
   const halfSpan = wing.spanMm / 2;
   const cr = wing.rootChordMm;
-  const ct = wing.planformType === 'rectangular' ? cr : wing.tipChordMm;
+  const ct = getEffectiveTipChordMm(wing);
   const sweepRad = (wing.sweepDeg * Math.PI) / 180;
   const sweepOffsetAtTip = halfSpan * Math.tan(sweepRad);
 

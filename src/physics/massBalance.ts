@@ -1,4 +1,4 @@
-import { GliderDesign, GliderMassBreakdown } from '@/types/glider';
+import { GliderDesign, GliderMassBreakdown, getEffectiveTipChordMm } from '@/types/glider';
 
 /**
  * Approximate points for a stylized profile fuselage.
@@ -133,14 +133,15 @@ export function calculateGliderMassAndCG(glider: GliderDesign): {
 
   // 2. Wing
   // Trapezoidal planform: S = (c_root + c_tip) / 2 * span
-  const wingAreaMm2 = ((glider.wing.rootChordMm + glider.wing.tipChordMm) / 2) * glider.wing.spanMm;
+  const effectiveTipChordMm = getEffectiveTipChordMm(glider.wing);
+  const wingAreaMm2 = ((glider.wing.rootChordMm + effectiveTipChordMm) / 2) * glider.wing.spanMm;
   const wingVolumeMm3 = wingAreaMm2 * glider.wing.thicknessMm;
   const wingGrams = wingVolumeMm3 * densityGPerMm3;
 
   // Wing centroid along X:
   // For trapezoid: centroid from root LE = (rootChord + 2 * tipChord) / (3 * (rootChord + tipChord)) * chordLine + sweep offset
   const cr = glider.wing.rootChordMm;
-  const ct = glider.wing.tipChordMm;
+  const ct = effectiveTipChordMm;
   const span = glider.wing.spanMm;
   const sweepRad = (glider.wing.sweepDeg * Math.PI) / 180;
   const sweepOffsetAtMidHalfSpan = (span / 4) * Math.tan(sweepRad);
