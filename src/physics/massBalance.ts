@@ -12,11 +12,19 @@ export function getFuselageProfilePoints(fuselage: GliderDesign['fuselage']): { 
 
   const { lengthMm, maxHeightMm, noseLengthMm, noseHeightMm, tailBoomHeightMm, profileStyle, wingSlot, mountType, autoReinforceSpine } = fuselage;
 
-  // Calculate required spine reinforcement height for through-slot
+  // Calculate required spine height so the wing is never left floating above the fuselage.
   const slotTopY = wingSlot.yPositionMm + wingSlot.thicknessMm / 2 + 2;
-  const minRequiredSpineY = (mountType === 'through_slot' && autoReinforceSpine)
-    ? slotTopY + 6.0 // Minimum 6mm solid balsa wood bridge above slot
-    : maxHeightMm;
+  let minRequiredSpineY = maxHeightMm;
+  if (mountType === 'through_slot' && autoReinforceSpine) {
+    // Enclosed slot needs a solid balsa bridge above the wing
+    minRequiredSpineY = slotTopY + 6.0;
+  } else if (mountType === 'top_saddle') {
+    // Open saddle: the spine must rise to meet the underside of the wing exactly
+    minRequiredSpineY = Math.max(maxHeightMm, wingSlot.yPositionMm - wingSlot.thicknessMm / 2);
+  }
+  // parasol_pylon intentionally leaves the spine at its normal height — the pylon
+  // mesh (built separately) bridges the gap up to the elevated wing.
+  // bottom_saddle keeps the normal profile too; the wing seats against the belly line.
 
   const effectiveMaxHeight = Math.max(maxHeightMm, minRequiredSpineY);
   const nosePeakX = noseLengthMm;

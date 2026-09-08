@@ -1,9 +1,16 @@
 'use client';
 
 import React, { useState } from 'react';
-import { GliderDesign, UIMode } from '@/types/glider';
+import { GliderDesign, UIMode, WingMountType } from '@/types/glider';
 import { SliderInput } from '@/components/common/SliderInput';
 import { Plane, Sliders, Shield, Weight } from 'lucide-react';
+
+const MOUNT_TYPE_OPTIONS: { value: WingMountType; label: string; simpleLabel: string }[] = [
+  { value: 'through_slot', label: 'Through-Slot', simpleLabel: 'Wing Through Body' },
+  { value: 'top_saddle', label: 'Top Saddle', simpleLabel: 'Wing on Top' },
+  { value: 'parasol_pylon', label: 'Parasol Pylon', simpleLabel: 'Wing on Strut' },
+  { value: 'bottom_saddle', label: 'Bottom Saddle', simpleLabel: 'Wing Underneath' },
+];
 
 interface ParametricControlsProps {
   glider: GliderDesign;
@@ -201,6 +208,59 @@ export const ParametricControls: React.FC<ParametricControlsProps> = ({
         {/* 2. Fuselage & Slot Section */}
         {activeSection === 'fuse' && (
           <div>
+            <div className="py-2 border-b border-slate-800/60 space-y-1.5">
+              <span className="text-xs font-semibold text-slate-200 block">
+                {isSimple ? 'How the Wing Attaches' : 'Wing Mount Type'}
+              </span>
+              <div className="grid grid-cols-2 gap-1.5">
+                {MOUNT_TYPE_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.value}
+                    onClick={() => updateFuselage({ mountType: opt.value })}
+                    className={`py-1.5 px-1.5 text-[11px] font-semibold rounded-md border transition-colors ${
+                      glider.fuselage.mountType === opt.value
+                        ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-md'
+                        : 'bg-slate-800/60 text-slate-300 border-slate-700 hover:bg-slate-800'
+                    }`}
+                  >
+                    {isSimple ? opt.simpleLabel : opt.label}
+                  </button>
+                ))}
+              </div>
+              <span className="text-[10px] text-slate-400 font-normal leading-tight block">
+                Controls how the wing physically joins the fuselage. The 3D model automatically
+                grows a saddle notch or support pylon so the wing is never left floating.
+              </span>
+            </div>
+
+            <SliderInput
+              label="Wing Slot Height (Y_wing)"
+              simpleLabel="Wing Up/Down Position"
+              value={glider.fuselage.wingSlot.yPositionMm}
+              min={0}
+              max={glider.fuselage.maxHeightMm + 40}
+              step={1}
+              unit="mm"
+              description="Raises or lowers the wing relative to the fuselage. Try raising it high to see a parasol pylon appear."
+              isSimpleMode={isSimple}
+              onChange={(v) => updateWingSlot({ yPositionMm: v })}
+            />
+
+            {glider.fuselage.mountType === 'parasol_pylon' && (
+              <SliderInput
+                label="Pylon Width"
+                simpleLabel="Strut Width"
+                value={glider.fuselage.pylonWidthMm}
+                min={10}
+                max={40}
+                step={1}
+                unit="mm"
+                description="Width of the cabane strut connecting the fuselage to the elevated wing."
+                isSimpleMode={isSimple}
+                onChange={(v) => updateFuselage({ pylonWidthMm: v })}
+              />
+            )}
+
             <SliderInput
               label="Fuselage Length"
               simpleLabel="Airplane Total Length"

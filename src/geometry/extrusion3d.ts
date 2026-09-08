@@ -231,22 +231,6 @@ export function createWingMesh(glider: GliderDesign, balsaMaterial: THREE.Materi
     geom.rotateX(-Math.PI / 2);
     return geom;
   }
-    shape.closePath();
-
-    const extrudeSettings: THREE.ExtrudeGeometryOptions = {
-      depth: wing.thicknessMm,
-      bevelEnabled: true,
-      bevelSegments: 1,
-      steps: 1,
-      bevelSize: 0.2,
-      bevelThickness: 0.2,
-    };
-
-    const geom = new THREE.ExtrudeGeometry(shape, extrudeSettings);
-    // Rotate so shape lies in X-Z plane, thickness in Y
-    geom.rotateX(-Math.PI / 2);
-    return geom;
-  }
 
   const leftGeom = createHalfWingGeometry();
   const rightGeom = createHalfWingGeometry();
