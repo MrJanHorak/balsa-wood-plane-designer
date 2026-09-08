@@ -7,6 +7,7 @@ import {
   generateTailFlatPattern,
   generateWingFlatPattern,
   generatePylonFlatPattern,
+  FlatPartSvg,
 } from '@/geometry/patterns2d';
 import { Scissors, Ruler, Download, Info } from 'lucide-react';
 
@@ -14,8 +15,51 @@ interface Pattern2DViewportProps {
   glider: GliderDesign;
 }
 
+interface LaidOutPart {
+  part: FlatPartSvg;
+  rotate: boolean;
+  transform: string;
+  labelX: number;
+  labelY: number;
+}
+
+const SHEET_MARGIN = 16;
+const PART_GAP = 22;
+const HEADER_SPACE = 26;
+
+/**
+ * Computes the transform needed to place a part's bounding box (optionally
+ * rotated 90°) so its top-left corner sits at (targetX, targetY) in sheet
+ * space. Works for any part regardless of its own local coordinate origin —
+ * fuselage/pylon are drawn from (0,0), wing/tail are span-centered on Y=0 —
+ * so parts can never end up positioned outside the sheet they're stacked on.
+ */
+function layoutPart(part: FlatPartSvg, targetX: number, targetY: number, rotate: boolean): LaidOutPart {
+  const { minX, minY, maxX, maxY } = part.boundingBox;
+  if (rotate) {
+    const a = targetX + maxY;
+    const b = targetY - minX;
+    return {
+      part,
+      rotate,
+      transform: `translate(${a.toFixed(2)}, ${b.toFixed(2)}) rotate(90)`,
+      // Label sits above the rotated part, centered on its rotated width
+      labelX: targetX + (maxY - minY) / 2,
+      labelY: targetY - 6,
+    };
+  }
+  const a = targetX - minX;
+  const b = targetY - minY;
+  return {
+    part,
+    rotate,
+    transform: `translate(${a.toFixed(2)}, ${b.toFixed(2)})`,
+    labelX: targetX + (maxX - minX) / 2,
+    labelY: targetY - 6,
+  };
+}
+
 export const Pattern2DViewport: React.FC<Pattern2DViewportProps> = ({ glider }) => {
-  const [activeTab, setActiveTab] = useState<'sheet' | 'fuselage' | 'wing' | 'tail'>('sheet');
   const [showRuler, setShowRuler] = useState(true);
 
   const fuselage = generateFuselageFlatPattern(glider);
@@ -39,9 +83,40 @@ export const Pattern2DViewport: React.FC<Pattern2DViewportProps> = ({ glider }) 
     document.body.removeChild(link);
   };
 
-  // Sheet dimensions (standard 100mm x 450mm balsa plank preview)
-  const sheetWidth = Math.max(420, glider.fuselage.lengthMm + 40, glider.wing.spanMm + 40);
-  const sheetHeight = pylon ? 280 : 240;
+  // Dynamically stack every part in its own row, sized from its actual
+  // measured extents — never fixed magic-number offsets — so nothing added
+  // (like the pylon) or grown (a wider wingspan, a taller fuselage) can ever
+  // overflow off the visible sheet.
+  const rows: { part: FlatPartSvg; rotate: boolean; label: string }[] = [
+    { part: fuselage, rotate: false, label: `Fuselage (${Math.round(fuselage.dimensions.widthMm)}mm)` },
+    { part: wing, rotate: true, label: `Main Wing (Span: ${glider.wing.spanMm}mm)` },
+    { part: tail, rotate: true, label: `Tail (Span: ${glider.horizontalStabilizer.spanMm}mm)` },
+  ];
+  if (pylon) {
+    rows.push({ part: pylon, rotate: false, label: `Pylon (${pylon.dimensions.widthMm}×${Math.round(pylon.dimensions.heightMm)}mm)` });
+  }
+
+  let yCursor = HEADER_SPACE;
+  const laidOut: (LaidOutPart & { label: string })[] = [];
+  let maxRowWidth = 0;
+
+  for (const row of rows) {
+    const effWidth = row.rotate
+      ? row.part.boundingBox.maxY - row.part.boundingBox.minY
+      : row.part.boundingBox.maxX - row.part.boundingBox.minX;
+    const effHeight = row.rotate
+      ? row.part.boundingBox.maxX - row.part.boundingBox.minX
+      : row.part.boundingBox.maxY - row.part.boundingBox.minY;
+
+    const laid = layoutPart(row.part, SHEET_MARGIN, yCursor + 14, row.rotate);
+    laidOut.push({ ...laid, label: row.label });
+
+    maxRowWidth = Math.max(maxRowWidth, effWidth);
+    yCursor += effHeight + 14 + PART_GAP;
+  }
+
+  const sheetWidth = Math.max(300, maxRowWidth + SHEET_MARGIN * 2);
+  const sheetHeight = yCursor;
 
   return (
     <div className="relative w-full h-full flex flex-col bg-slate-950 text-slate-100 overflow-hidden select-none">
@@ -90,7 +165,7 @@ export const Pattern2DViewport: React.FC<Pattern2DViewportProps> = ({ glider }) 
             </div>
             <div className="flex items-center gap-2">
               <span className="inline-block w-4 h-0.5 border-t-2 border-dashed border-cyan-400" />
-              <span>Score / Fold Lines (Dihedral)</span>
+              <span>Score / Fold / Glue-Seat Lines</span>
             </div>
             <div className="flex items-center gap-2">
               <span className="inline-block w-3 h-3 border border-amber-500/60 bg-amber-500/10 rounded-sm" />
@@ -101,7 +176,7 @@ export const Pattern2DViewport: React.FC<Pattern2DViewportProps> = ({ glider }) 
           <svg
             id="balsa-pattern-svg"
             viewBox={`-20 -20 ${sheetWidth + 40} ${sheetHeight + 40}`}
-            className="w-full max-h-[500px] border border-slate-700/80 rounded bg-slate-950/60 shadow-inner"
+            className="w-full max-h-[600px] border border-slate-700/80 rounded bg-slate-950/60 shadow-inner"
             xmlns="http://www.w3.org/2000/svg"
           >
             {/* Sheet Outline */}
@@ -116,95 +191,26 @@ export const Pattern2DViewport: React.FC<Pattern2DViewportProps> = ({ glider }) 
               strokeDasharray="4 2"
               rx="4"
             />
-            <text x="10" y="16" fill="#855d3e" fontSize="9" fontFamily="monospace">
+            <text x="10" y="14" fill="#855d3e" fontSize="8" fontFamily="monospace">
               STANDARD BALSA SHEET ({glider.material.name}) - THICKNESS: {glider.material.sheetThicknessMm.toFixed(2)}mm
             </text>
 
-            {/* 1. Fuselage Pattern */}
-            <g transform="translate(15, 30)">
-              {/* Outer Cut Path */}
-              <path
-                d={fuselage.outlinePath}
-                fill="#2a1d13"
-                stroke="#ef4444"
-                strokeWidth="1.2"
-              />
-              {/* Wing & Tail Slots (enclosed cuts, through-slot / tail only) */}
-              {fuselage.slotCutouts.map((slotD, idx) => (
-                <path
-                  key={idx}
-                  d={slotD}
-                  fill="#0f172a"
-                  stroke="#fbbf24"
-                  strokeWidth="1.2"
-                />
-              ))}
-              {/* Glue-seat guides (saddle mounts — not cut, just alignment marks) */}
-              {fuselage.scoreLines.map((lineD, idx) => (
-                <path
-                  key={idx}
-                  d={lineD}
-                  fill="none"
-                  stroke="#06b6d4"
-                  strokeWidth="1.2"
-                  strokeDasharray="3 2"
-                />
-              ))}
-              <text x={fuselage.dimensions.widthMm / 2} y="15" fill="#f59e0b" fontSize="9" textAnchor="middle" fontWeight="bold">
-                Fuselage ({fuselage.dimensions.widthMm}mm)
-              </text>
-            </g>
-
-            {/* 2. Main Wing Pattern */}
-            <g transform={`translate(${15 + glider.wing.spanMm / 2}, 145) rotate(90)`}>
-              <path
-                d={wing.outlinePath}
-                fill="#2a1d13"
-                stroke="#ef4444"
-                strokeWidth="1.2"
-              />
-              {/* Dihedral Center Score Line */}
-              {wing.scoreLines.map((lineD, idx) => (
-                <path
-                  key={idx}
-                  d={lineD}
-                  stroke="#06b6d4"
-                  strokeWidth="1.2"
-                  strokeDasharray="3 2"
-                />
-              ))}
-              <text x="5" y="0" fill="#f59e0b" fontSize="8" textAnchor="middle" transform="rotate(-90)" fontWeight="bold">
-                Main Wing (Span: {glider.wing.spanMm}mm)
-              </text>
-            </g>
-
-            {/* 3. Horizontal Tail Pattern */}
-            <g transform={`translate(${Math.max(glider.wing.spanMm + 40, 260)}, 110)`}>
-              <path
-                d={tail.outlinePath}
-                fill="#2a1d13"
-                stroke="#ef4444"
-                strokeWidth="1.2"
-              />
-              <text x={tail.dimensions.widthMm / 2} y="12" fill="#f59e0b" fontSize="8" textAnchor="middle" fontWeight="bold">
-                Tail ({tail.dimensions.heightMm}mm)
-              </text>
-            </g>
-
-            {/* 4. Parasol Pylon Strut (only when mounted via elevated cabane strut) */}
-            {pylon && (
-              <g transform={`translate(${Math.max(glider.wing.spanMm + 40, 260)}, 175)`}>
-                <path
-                  d={pylon.outlinePath}
-                  fill="#2a1d13"
-                  stroke="#ef4444"
-                  strokeWidth="1.2"
-                />
-                <text x={pylon.dimensions.widthMm / 2} y="-4" fill="#f59e0b" fontSize="8" textAnchor="middle" fontWeight="bold">
-                  Pylon ({pylon.dimensions.widthMm}×{Math.round(pylon.dimensions.heightMm)}mm)
+            {laidOut.map((row) => (
+              <React.Fragment key={row.part.id}>
+                <g transform={row.transform}>
+                  <path d={row.part.outlinePath} fill="#2a1d13" stroke="#ef4444" strokeWidth="1.2" />
+                  {row.part.slotCutouts.map((slotD, idx) => (
+                    <path key={idx} d={slotD} fill="#0f172a" stroke="#fbbf24" strokeWidth="1.2" />
+                  ))}
+                  {row.part.scoreLines.map((lineD, idx) => (
+                    <path key={idx} d={lineD} fill="none" stroke="#06b6d4" strokeWidth="1.2" strokeDasharray="3 2" />
+                  ))}
+                </g>
+                <text x={row.labelX} y={row.labelY} fill="#f59e0b" fontSize="9" textAnchor="middle" fontWeight="bold">
+                  {row.label}
                 </text>
-              </g>
-            )}
+              </React.Fragment>
+            ))}
 
             {/* Scale Calibration Ruler (50mm / 2 inches) */}
             {showRuler && (

@@ -24,15 +24,16 @@ export function getFuselageProfilePoints(fuselage: GliderDesign['fuselage']): { 
   }
   // parasol_pylon intentionally leaves the spine at its normal height — the pylon
   // mesh (built separately) bridges the gap up to the elevated wing.
-  // bottom_saddle keeps the normal profile too; the wing seats against the belly line.
 
   const effectiveMaxHeight = Math.max(maxHeightMm, minRequiredSpineY);
   const nosePeakX = noseLengthMm;
   const wingX = wingSlot.xPositionMm;
   const wingLen = wingSlot.lengthMm;
 
+  let points: { x: number; y: number }[];
+
   if (profileStyle === 'sport_jet') {
-    return [
+    points = [
       { x: 0, y: noseHeightMm * 0.4 },
       { x: nosePeakX * 0.4, y: effectiveMaxHeight * 0.8 },
       { x: nosePeakX, y: effectiveMaxHeight },
@@ -45,10 +46,8 @@ export function getFuselageProfilePoints(fuselage: GliderDesign['fuselage']): { 
       { x: nosePeakX * 0.5, y: 0 },
       { x: 0, y: 0 },
     ];
-  }
-
-  if (profileStyle === 'sky_streak') {
-    return [
+  } else if (profileStyle === 'sky_streak') {
+    points = [
       { x: 0, y: noseHeightMm * 0.5 },
       { x: nosePeakX * 0.5, y: effectiveMaxHeight * 0.9 },
       { x: nosePeakX, y: effectiveMaxHeight },
@@ -59,24 +58,68 @@ export function getFuselageProfilePoints(fuselage: GliderDesign['fuselage']): { 
       { x: lengthMm, y: 0 },
       { x: 0, y: 0 },
     ];
+  } else {
+    // Default 'trainer' / 'curved_classic' with intelligent adaptive wing saddle/pylon
+    const pylonPeakY = Math.max(effectiveMaxHeight, slotTopY + 6);
+    points = [
+      { x: 0, y: noseHeightMm * 0.5 },
+      { x: nosePeakX * 0.3, y: noseHeightMm * 0.9 },
+      { x: nosePeakX * 0.7, y: pylonPeakY * 0.95 },
+      { x: Math.min(nosePeakX, wingX - 5), y: pylonPeakY },
+      { x: wingX + wingLen * 0.5, y: pylonPeakY },
+      { x: wingX + wingLen + 15, y: Math.max(wingSlot.yPositionMm + 4, pylonPeakY * 0.8) },
+      { x: lengthMm * 0.65, y: tailBoomHeightMm * 1.6 },
+      { x: lengthMm * 0.9, y: tailBoomHeightMm * 1.1 },
+      { x: lengthMm, y: tailBoomHeightMm },
+      { x: lengthMm, y: 0 },
+      { x: lengthMm * 0.6, y: 0 },
+      { x: 0, y: 0 },
+    ];
   }
 
-  // Default 'trainer' / 'curved_classic' with intelligent adaptive wing saddle/pylon
-  const pylonPeakY = Math.max(effectiveMaxHeight, slotTopY + 6);
-  return [
-    { x: 0, y: noseHeightMm * 0.5 },
-    { x: nosePeakX * 0.3, y: noseHeightMm * 0.9 },
-    { x: nosePeakX * 0.7, y: pylonPeakY * 0.95 },
-    { x: Math.min(nosePeakX, wingX - 5), y: pylonPeakY },
-    { x: wingX + wingLen * 0.5, y: pylonPeakY },
-    { x: wingX + wingLen + 15, y: Math.max(wingSlot.yPositionMm + 4, pylonPeakY * 0.8) },
-    { x: lengthMm * 0.65, y: tailBoomHeightMm * 1.6 },
-    { x: lengthMm * 0.9, y: tailBoomHeightMm * 1.1 },
-    { x: lengthMm, y: tailBoomHeightMm },
-    { x: lengthMm, y: 0 },
-    { x: lengthMm * 0.6, y: 0 },
-    { x: 0, y: 0 },
-  ];
+  // Bottom-saddle mount: when the wing sits below the belly line, dip the
+  // fuselage's flat underside down to meet it (mirror of the top-saddle
+  // spine reinforcement above) so the wing is never left floating.
+  if (mountType === 'bottom_saddle') {
+    const wingBottomY = wingSlot.yPositionMm - wingSlot.thicknessMm / 2;
+    if (wingBottomY < -0.5) {
+      points = insertBellyDip(points, wingX, wingLen, wingBottomY - 2);
+    }
+  }
+
+  return points;
+}
+
+/**
+ * Inserts two new vertices into the flat belly segment of a fuselage profile
+ * so it dips down to meet a wing mounted below the baseline. Works generically
+ * across any profile style by locating the (nearly) flat, y≈0 segment whose
+ * X range contains the wing's slot — rather than hardcoding indices per style.
+ */
+function insertBellyDip(
+  points: { x: number; y: number }[],
+  wingX: number,
+  wingLen: number,
+  dipY: number
+): { x: number; y: number }[] {
+  const result = [...points];
+  for (let i = 0; i < result.length; i++) {
+    const p1 = result[i];
+    const p2 = result[(i + 1) % result.length];
+    if (Math.abs(p1.y) < 0.5 && Math.abs(p2.y) < 0.5) {
+      const xMin = Math.min(p1.x, p2.x);
+      const xMax = Math.max(p1.x, p2.x);
+      if (wingX >= xMin - 1 && wingX + wingLen <= xMax + 1) {
+        const goingRightToLeft = p1.x > p2.x;
+        const leftDip = { x: wingX, y: dipY };
+        const rightDip = { x: wingX + wingLen, y: dipY };
+        const insertion = goingRightToLeft ? [rightDip, leftDip] : [leftDip, rightDip];
+        result.splice(i + 1, 0, ...insertion);
+        return result;
+      }
+    }
+  }
+  return result;
 }
 
 /**

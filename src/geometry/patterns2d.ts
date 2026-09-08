@@ -75,8 +75,16 @@ export function generateFuselageFlatPattern(glider: GliderDesign): FlatPartSvg {
     outlinePath,
     slotCutouts,
     scoreLines,
-    dimensions: { widthMm: fuselage.lengthMm, heightMm: fuselage.maxHeightMm },
-    boundingBox: { minX: 0, minY: 0, maxX: fuselage.lengthMm, maxY: fuselage.maxHeightMm },
+    dimensions: {
+      widthMm: Math.max(...points.map(p => p.x)) - Math.min(...points.map(p => p.x)),
+      heightMm: Math.max(...points.map(p => p.y)) - Math.min(...points.map(p => p.y)),
+    },
+    boundingBox: {
+      minX: Math.min(...points.map(p => p.x)),
+      minY: Math.min(...points.map(p => p.y)),
+      maxX: Math.max(...points.map(p => p.x)),
+      maxY: Math.max(...points.map(p => p.y)),
+    },
   };
 }
 

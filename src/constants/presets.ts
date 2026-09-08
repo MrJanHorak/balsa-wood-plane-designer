@@ -165,7 +165,7 @@ export const GLIDER_PRESETS: Record<string, GliderDesign> = {
         lengthMm: 34,
         thicknessMm: 1.7,
       },
-      noseBallastGrams: 1.0,
+      noseBallastGrams: 0.55,
       ballastPositionXMm: 8,
       profileStyle: 'sport_jet',
     },
@@ -173,7 +173,10 @@ export const GLIDER_PRESETS: Record<string, GliderDesign> = {
       planformType: 'delta',
       spanMm: 280,
       rootChordMm: 72,
-      tipChordMm: 34,
+      // Delta wings converge to a near-point tip (see getEffectiveTipChordMm) —
+      // stored here just to keep the data self-consistent; the slider for this
+      // is hidden in delta mode since it has no effect on the rendered shape.
+      tipChordMm: 6,
       sweepDeg: 16,
       dihedralDeg: 4.0,
       camberPercent: 1.5,

@@ -5,11 +5,11 @@ import { GliderDesign, UIMode, WingMountType, WingPlanformType } from '@/types/g
 import { SliderInput } from '@/components/common/SliderInput';
 import { Plane, Sliders, Shield, Weight } from 'lucide-react';
 
-const MOUNT_TYPE_OPTIONS: { value: WingMountType; label: string; simpleLabel: string }[] = [
-  { value: 'through_slot', label: 'Through-Slot', simpleLabel: 'Wing Through Body' },
-  { value: 'top_saddle', label: 'Top Saddle', simpleLabel: 'Wing on Top' },
-  { value: 'parasol_pylon', label: 'Parasol Pylon', simpleLabel: 'Wing on Strut' },
-  { value: 'bottom_saddle', label: 'Bottom Saddle', simpleLabel: 'Wing Underneath' },
+const MOUNT_TYPE_OPTIONS: { value: WingMountType; label: string; simpleLabel: string; defaultY: (maxH: number) => number }[] = [
+  { value: 'through_slot', label: 'Through-Slot', simpleLabel: 'Wing Through Body', defaultY: (maxH) => maxH * 0.6 },
+  { value: 'top_saddle', label: 'Top Saddle', simpleLabel: 'Wing on Top', defaultY: (maxH) => maxH },
+  { value: 'parasol_pylon', label: 'Parasol Pylon', simpleLabel: 'Wing on Strut', defaultY: (maxH) => maxH + 25 },
+  { value: 'bottom_saddle', label: 'Bottom Saddle', simpleLabel: 'Wing Underneath', defaultY: () => -14 },
 ];
 
 const PLANFORM_OPTIONS: { value: WingPlanformType; label: string; simpleLabel: string }[] = [
@@ -179,7 +179,7 @@ export const ParametricControls: React.FC<ParametricControlsProps> = ({
               onChange={(v) => updateWing({ rootChordMm: v })}
             />
 
-            {glider.wing.planformType !== 'rectangular' && (
+            {glider.wing.planformType !== 'rectangular' && glider.wing.planformType !== 'delta' && (
               <SliderInput
                 label="Tip Chord (c_t)"
                 simpleLabel="Wingtip Width"
@@ -246,7 +246,19 @@ export const ParametricControls: React.FC<ParametricControlsProps> = ({
                 {MOUNT_TYPE_OPTIONS.map((opt) => (
                   <button
                     key={opt.value}
-                    onClick={() => updateFuselage({ mountType: opt.value })}
+                    onClick={() => {
+                      onChange({
+                        ...glider,
+                        fuselage: {
+                          ...glider.fuselage,
+                          mountType: opt.value,
+                          wingSlot: {
+                            ...glider.fuselage.wingSlot,
+                            yPositionMm: opt.defaultY(glider.fuselage.maxHeightMm),
+                          },
+                        },
+                      });
+                    }}
                     className={`py-1.5 px-1.5 text-[11px] font-semibold rounded-md border transition-colors ${
                       glider.fuselage.mountType === opt.value
                         ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-md'
@@ -267,11 +279,11 @@ export const ParametricControls: React.FC<ParametricControlsProps> = ({
               label="Wing Slot Height (Y_wing)"
               simpleLabel="Wing Up/Down Position"
               value={glider.fuselage.wingSlot.yPositionMm}
-              min={0}
+              min={-40}
               max={glider.fuselage.maxHeightMm + 40}
               step={1}
               unit="mm"
-              description="Raises or lowers the wing relative to the fuselage. Try raising it high to see a parasol pylon appear."
+              description="Raises or lowers the wing relative to the fuselage. Negative values mount it below the belly line."
               isSimpleMode={isSimple}
               onChange={(v) => updateWingSlot({ yPositionMm: v })}
             />
@@ -390,14 +402,14 @@ export const ParametricControls: React.FC<ParametricControlsProps> = ({
             <SliderInput
               label="Tail Decalage / Elevator Trim (i_t)"
               simpleLabel="Tail Angle Trim (Elevator)"
-              value={glider.horizontalStabilizer.incidenceDeg}
+              value={glider.fuselage.tailSlot.angleDeg}
               min={-3}
               max={3}
               step={0.2}
               unit="°"
               description="Trim angle of tail. Downward tail angle pitches nose up."
               isSimpleMode={isSimple}
-              onChange={(v) => updateTail({ incidenceDeg: v })}
+              onChange={(v) => updateTailSlot({ angleDeg: v })}
             />
           </div>
         )}

@@ -69,14 +69,19 @@ export interface WingConfig {
 
 /**
  * The effective tip chord to use for area, MAC, and geometry calculations.
- * Rectangular wings are defined by root chord alone — tipChordMm is ignored
- * (and stays stale in state as the user tweaks other sliders), so every
- * consumer of tip chord (physics AND geometry) must read through this
+ * - Rectangular wings are defined by root chord alone — tipChordMm is ignored
+ *   (and stays stale in state as the user tweaks other sliders).
+ * - Delta wings converge to a near-point tip regardless of the stored
+ *   tipChordMm, so switching Tapered -> Delta is visually distinct instead
+ *   of silently reusing the tapered trapezoid.
+ * Every consumer of tip chord (physics AND geometry) must read through this
  * helper rather than wing.tipChordMm directly, or the rendered shape and
  * the stability math can silently disagree.
  */
 export function getEffectiveTipChordMm(wing: Pick<WingConfig, 'planformType' | 'rootChordMm' | 'tipChordMm'>): number {
-  return wing.planformType === 'rectangular' ? wing.rootChordMm : wing.tipChordMm;
+  if (wing.planformType === 'rectangular') return wing.rootChordMm;
+  if (wing.planformType === 'delta') return Math.max(4, wing.rootChordMm * 0.08);
+  return wing.tipChordMm;
 }
 
 export interface TailConfig {

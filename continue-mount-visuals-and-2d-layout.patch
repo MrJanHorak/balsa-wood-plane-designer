@@ -1,0 +1,518 @@
+diff --git a/src/components/ui/ParametricControls.tsx b/src/components/ui/ParametricControls.tsx
+index abec91d..f92147d 100644
+--- a/src/components/ui/ParametricControls.tsx
++++ b/src/components/ui/ParametricControls.tsx
+@@ -5,11 +5,11 @@ import { GliderDesign, UIMode, WingMountType, WingPlanformType } from '@/types/g
+ import { SliderInput } from '@/components/common/SliderInput';
+ import { Plane, Sliders, Shield, Weight } from 'lucide-react';
+ 
+-const MOUNT_TYPE_OPTIONS: { value: WingMountType; label: string; simpleLabel: string }[] = [
+-  { value: 'through_slot', label: 'Through-Slot', simpleLabel: 'Wing Through Body' },
+-  { value: 'top_saddle', label: 'Top Saddle', simpleLabel: 'Wing on Top' },
+-  { value: 'parasol_pylon', label: 'Parasol Pylon', simpleLabel: 'Wing on Strut' },
+-  { value: 'bottom_saddle', label: 'Bottom Saddle', simpleLabel: 'Wing Underneath' },
++const MOUNT_TYPE_OPTIONS: { value: WingMountType; label: string; simpleLabel: string; defaultY: (maxH: number) => number }[] = [
++  { value: 'through_slot', label: 'Through-Slot', simpleLabel: 'Wing Through Body', defaultY: (maxH) => maxH * 0.6 },
++  { value: 'top_saddle', label: 'Top Saddle', simpleLabel: 'Wing on Top', defaultY: (maxH) => maxH },
++  { value: 'parasol_pylon', label: 'Parasol Pylon', simpleLabel: 'Wing on Strut', defaultY: (maxH) => maxH + 25 },
++  { value: 'bottom_saddle', label: 'Bottom Saddle', simpleLabel: 'Wing Underneath', defaultY: () => -14 },
+ ];
+ 
+ const PLANFORM_OPTIONS: { value: WingPlanformType; label: string; simpleLabel: string }[] = [
+@@ -179,7 +179,7 @@ export const ParametricControls: React.FC<ParametricControlsProps> = ({
+               onChange={(v) => updateWing({ rootChordMm: v })}
+             />
+ 
+-            {glider.wing.planformType !== 'rectangular' && (
++            {glider.wing.planformType !== 'rectangular' && glider.wing.planformType !== 'delta' && (
+               <SliderInput
+                 label="Tip Chord (c_t)"
+                 simpleLabel="Wingtip Width"
+@@ -246,7 +246,19 @@ export const ParametricControls: React.FC<ParametricControlsProps> = ({
+                 {MOUNT_TYPE_OPTIONS.map((opt) => (
+                   <button
+                     key={opt.value}
+-                    onClick={() => updateFuselage({ mountType: opt.value })}
++                    onClick={() => {
++                      onChange({
++                        ...glider,
++                        fuselage: {
++                          ...glider.fuselage,
++                          mountType: opt.value,
++                          wingSlot: {
++                            ...glider.fuselage.wingSlot,
++                            yPositionMm: opt.defaultY(glider.fuselage.maxHeightMm),
++                          },
++                        },
++                      });
++                    }}
+                     className={`py-1.5 px-1.5 text-[11px] font-semibold rounded-md border transition-colors ${
+                       glider.fuselage.mountType === opt.value
+                         ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-md'
+@@ -267,11 +279,11 @@ export const ParametricControls: React.FC<ParametricControlsProps> = ({
+               label="Wing Slot Height (Y_wing)"
+               simpleLabel="Wing Up/Down Position"
+               value={glider.fuselage.wingSlot.yPositionMm}
+-              min={0}
++              min={-40}
+               max={glider.fuselage.maxHeightMm + 40}
+               step={1}
+               unit="mm"
+-              description="Raises or lowers the wing relative to the fuselage. Try raising it high to see a parasol pylon appear."
++              description="Raises or lowers the wing relative to the fuselage. Negative values mount it below the belly line."
+               isSimpleMode={isSimple}
+               onChange={(v) => updateWingSlot({ yPositionMm: v })}
+             />
+@@ -390,14 +402,14 @@ export const ParametricControls: React.FC<ParametricControlsProps> = ({
+             <SliderInput
+               label="Tail Decalage / Elevator Trim (i_t)"
+               simpleLabel="Tail Angle Trim (Elevator)"
+-              value={glider.horizontalStabilizer.incidenceDeg}
++              value={glider.fuselage.tailSlot.angleDeg}
+               min={-3}
+               max={3}
+               step={0.2}
+               unit="°"
+               description="Trim angle of tail. Downward tail angle pitches nose up."
+               isSimpleMode={isSimple}
+-              onChange={(v) => updateTail({ incidenceDeg: v })}
++              onChange={(v) => updateTailSlot({ angleDeg: v })}
+             />
+           </div>
+         )}
+diff --git a/src/components/viewport/Pattern2DViewport.tsx b/src/components/viewport/Pattern2DViewport.tsx
+index 70f904d..1b115a8 100644
+--- a/src/components/viewport/Pattern2DViewport.tsx
++++ b/src/components/viewport/Pattern2DViewport.tsx
+@@ -7,6 +7,7 @@ import {
+   generateTailFlatPattern,
+   generateWingFlatPattern,
+   generatePylonFlatPattern,
++  FlatPartSvg,
+ } from '@/geometry/patterns2d';
+ import { Scissors, Ruler, Download, Info } from 'lucide-react';
+ 
+@@ -14,8 +15,51 @@ interface Pattern2DViewportProps {
+   glider: GliderDesign;
+ }
+ 
++interface LaidOutPart {
++  part: FlatPartSvg;
++  rotate: boolean;
++  transform: string;
++  labelX: number;
++  labelY: number;
++}
++
++const SHEET_MARGIN = 16;
++const PART_GAP = 22;
++const HEADER_SPACE = 26;
++
++/**
++ * Computes the transform needed to place a part's bounding box (optionally
++ * rotated 90°) so its top-left corner sits at (targetX, targetY) in sheet
++ * space. Works for any part regardless of its own local coordinate origin —
++ * fuselage/pylon are drawn from (0,0), wing/tail are span-centered on Y=0 —
++ * so parts can never end up positioned outside the sheet they're stacked on.
++ */
++function layoutPart(part: FlatPartSvg, targetX: number, targetY: number, rotate: boolean): LaidOutPart {
++  const { minX, minY, maxX, maxY } = part.boundingBox;
++  if (rotate) {
++    const a = targetX + maxY;
++    const b = targetY - minX;
++    return {
++      part,
++      rotate,
++      transform: `translate(${a.toFixed(2)}, ${b.toFixed(2)}) rotate(90)`,
++      // Label sits above the rotated part, centered on its rotated width
++      labelX: targetX + (maxY - minY) / 2,
++      labelY: targetY - 6,
++    };
++  }
++  const a = targetX - minX;
++  const b = targetY - minY;
++  return {
++    part,
++    rotate,
++    transform: `translate(${a.toFixed(2)}, ${b.toFixed(2)})`,
++    labelX: targetX + (maxX - minX) / 2,
++    labelY: targetY - 6,
++  };
++}
++
+ export const Pattern2DViewport: React.FC<Pattern2DViewportProps> = ({ glider }) => {
+-  const [activeTab, setActiveTab] = useState<'sheet' | 'fuselage' | 'wing' | 'tail'>('sheet');
+   const [showRuler, setShowRuler] = useState(true);
+ 
+   const fuselage = generateFuselageFlatPattern(glider);
+@@ -39,9 +83,40 @@ export const Pattern2DViewport: React.FC<Pattern2DViewportProps> = ({ glider })
+     document.body.removeChild(link);
+   };
+ 
+-  // Sheet dimensions (standard 100mm x 450mm balsa plank preview)
+-  const sheetWidth = Math.max(420, glider.fuselage.lengthMm + 40, glider.wing.spanMm + 40);
+-  const sheetHeight = pylon ? 280 : 240;
++  // Dynamically stack every part in its own row, sized from its actual
++  // measured extents — never fixed magic-number offsets — so nothing added
++  // (like the pylon) or grown (a wider wingspan, a taller fuselage) can ever
++  // overflow off the visible sheet.
++  const rows: { part: FlatPartSvg; rotate: boolean; label: string }[] = [
++    { part: fuselage, rotate: false, label: `Fuselage (${Math.round(fuselage.dimensions.widthMm)}mm)` },
++    { part: wing, rotate: true, label: `Main Wing (Span: ${glider.wing.spanMm}mm)` },
++    { part: tail, rotate: true, label: `Tail (Span: ${glider.horizontalStabilizer.spanMm}mm)` },
++  ];
++  if (pylon) {
++    rows.push({ part: pylon, rotate: false, label: `Pylon (${pylon.dimensions.widthMm}×${Math.round(pylon.dimensions.heightMm)}mm)` });
++  }
++
++  let yCursor = HEADER_SPACE;
++  const laidOut: (LaidOutPart & { label: string })[] = [];
++  let maxRowWidth = 0;
++
++  for (const row of rows) {
++    const effWidth = row.rotate
++      ? row.part.boundingBox.maxY - row.part.boundingBox.minY
++      : row.part.boundingBox.maxX - row.part.boundingBox.minX;
++    const effHeight = row.rotate
++      ? row.part.boundingBox.maxX - row.part.boundingBox.minX
++      : row.part.boundingBox.maxY - row.part.boundingBox.minY;
++
++    const laid = layoutPart(row.part, SHEET_MARGIN, yCursor + 14, row.rotate);
++    laidOut.push({ ...laid, label: row.label });
++
++    maxRowWidth = Math.max(maxRowWidth, effWidth);
++    yCursor += effHeight + 14 + PART_GAP;
++  }
++
++  const sheetWidth = Math.max(300, maxRowWidth + SHEET_MARGIN * 2);
++  const sheetHeight = yCursor;
+ 
+   return (
+     <div className="relative w-full h-full flex flex-col bg-slate-950 text-slate-100 overflow-hidden select-none">
+@@ -90,7 +165,7 @@ export const Pattern2DViewport: React.FC<Pattern2DViewportProps> = ({ glider })
+             </div>
+             <div className="flex items-center gap-2">
+               <span className="inline-block w-4 h-0.5 border-t-2 border-dashed border-cyan-400" />
+-              <span>Score / Fold Lines (Dihedral)</span>
++              <span>Score / Fold / Glue-Seat Lines</span>
+             </div>
+             <div className="flex items-center gap-2">
+               <span className="inline-block w-3 h-3 border border-amber-500/60 bg-amber-500/10 rounded-sm" />
+@@ -101,7 +176,7 @@ export const Pattern2DViewport: React.FC<Pattern2DViewportProps> = ({ glider })
+           <svg
+             id="balsa-pattern-svg"
+             viewBox={`-20 -20 ${sheetWidth + 40} ${sheetHeight + 40}`}
+-            className="w-full max-h-[500px] border border-slate-700/80 rounded bg-slate-950/60 shadow-inner"
++            className="w-full max-h-[600px] border border-slate-700/80 rounded bg-slate-950/60 shadow-inner"
+             xmlns="http://www.w3.org/2000/svg"
+           >
+             {/* Sheet Outline */}
+@@ -116,95 +191,26 @@ export const Pattern2DViewport: React.FC<Pattern2DViewportProps> = ({ glider })
+               strokeDasharray="4 2"
+               rx="4"
+             />
+-            <text x="10" y="16" fill="#855d3e" fontSize="9" fontFamily="monospace">
++            <text x="10" y="14" fill="#855d3e" fontSize="8" fontFamily="monospace">
+               STANDARD BALSA SHEET ({glider.material.name}) - THICKNESS: {glider.material.sheetThicknessMm.toFixed(2)}mm
+             </text>
+ 
+-            {/* 1. Fuselage Pattern */}
+-            <g transform="translate(15, 30)">
+-              {/* Outer Cut Path */}
+-              <path
+-                d={fuselage.outlinePath}
+-                fill="#2a1d13"
+-                stroke="#ef4444"
+-                strokeWidth="1.2"
+-              />
+-              {/* Wing & Tail Slots (enclosed cuts, through-slot / tail only) */}
+-              {fuselage.slotCutouts.map((slotD, idx) => (
+-                <path
+-                  key={idx}
+-                  d={slotD}
+-                  fill="#0f172a"
+-                  stroke="#fbbf24"
+-                  strokeWidth="1.2"
+-                />
+-              ))}
+-              {/* Glue-seat guides (saddle mounts — not cut, just alignment marks) */}
+-              {fuselage.scoreLines.map((lineD, idx) => (
+-                <path
+-                  key={idx}
+-                  d={lineD}
+-                  fill="none"
+-                  stroke="#06b6d4"
+-                  strokeWidth="1.2"
+-                  strokeDasharray="3 2"
+-                />
+-              ))}
+-              <text x={fuselage.dimensions.widthMm / 2} y="15" fill="#f59e0b" fontSize="9" textAnchor="middle" fontWeight="bold">
+-                Fuselage ({fuselage.dimensions.widthMm}mm)
+-              </text>
+-            </g>
+-
+-            {/* 2. Main Wing Pattern */}
+-            <g transform={`translate(${15 + glider.wing.spanMm / 2}, 145) rotate(90)`}>
+-              <path
+-                d={wing.outlinePath}
+-                fill="#2a1d13"
+-                stroke="#ef4444"
+-                strokeWidth="1.2"
+-              />
+-              {/* Dihedral Center Score Line */}
+-              {wing.scoreLines.map((lineD, idx) => (
+-                <path
+-                  key={idx}
+-                  d={lineD}
+-                  stroke="#06b6d4"
+-                  strokeWidth="1.2"
+-                  strokeDasharray="3 2"
+-                />
+-              ))}
+-              <text x="5" y="0" fill="#f59e0b" fontSize="8" textAnchor="middle" transform="rotate(-90)" fontWeight="bold">
+-                Main Wing (Span: {glider.wing.spanMm}mm)
+-              </text>
+-            </g>
+-
+-            {/* 3. Horizontal Tail Pattern */}
+-            <g transform={`translate(${Math.max(glider.wing.spanMm + 40, 260)}, 110)`}>
+-              <path
+-                d={tail.outlinePath}
+-                fill="#2a1d13"
+-                stroke="#ef4444"
+-                strokeWidth="1.2"
+-              />
+-              <text x={tail.dimensions.widthMm / 2} y="12" fill="#f59e0b" fontSize="8" textAnchor="middle" fontWeight="bold">
+-                Tail ({tail.dimensions.heightMm}mm)
+-              </text>
+-            </g>
+-
+-            {/* 4. Parasol Pylon Strut (only when mounted via elevated cabane strut) */}
+-            {pylon && (
+-              <g transform={`translate(${Math.max(glider.wing.spanMm + 40, 260)}, 175)`}>
+-                <path
+-                  d={pylon.outlinePath}
+-                  fill="#2a1d13"
+-                  stroke="#ef4444"
+-                  strokeWidth="1.2"
+-                />
+-                <text x={pylon.dimensions.widthMm / 2} y="-4" fill="#f59e0b" fontSize="8" textAnchor="middle" fontWeight="bold">
+-                  Pylon ({pylon.dimensions.widthMm}×{Math.round(pylon.dimensions.heightMm)}mm)
++            {laidOut.map((row) => (
++              <React.Fragment key={row.part.id}>
++                <g transform={row.transform}>
++                  <path d={row.part.outlinePath} fill="#2a1d13" stroke="#ef4444" strokeWidth="1.2" />
++                  {row.part.slotCutouts.map((slotD, idx) => (
++                    <path key={idx} d={slotD} fill="#0f172a" stroke="#fbbf24" strokeWidth="1.2" />
++                  ))}
++                  {row.part.scoreLines.map((lineD, idx) => (
++                    <path key={idx} d={lineD} fill="none" stroke="#06b6d4" strokeWidth="1.2" strokeDasharray="3 2" />
++                  ))}
++                </g>
++                <text x={row.labelX} y={row.labelY} fill="#f59e0b" fontSize="9" textAnchor="middle" fontWeight="bold">
++                  {row.label}
+                 </text>
+-              </g>
+-            )}
++              </React.Fragment>
++            ))}
+ 
+             {/* Scale Calibration Ruler (50mm / 2 inches) */}
+             {showRuler && (
+diff --git a/src/constants/presets.ts b/src/constants/presets.ts
+index a365dc1..8d835bc 100644
+--- a/src/constants/presets.ts
++++ b/src/constants/presets.ts
+@@ -165,7 +165,7 @@ export const GLIDER_PRESETS: Record<string, GliderDesign> = {
+         lengthMm: 34,
+         thicknessMm: 1.7,
+       },
+-      noseBallastGrams: 1.0,
++      noseBallastGrams: 0.55,
+       ballastPositionXMm: 8,
+       profileStyle: 'sport_jet',
+     },
+@@ -173,7 +173,10 @@ export const GLIDER_PRESETS: Record<string, GliderDesign> = {
+       planformType: 'delta',
+       spanMm: 280,
+       rootChordMm: 72,
+-      tipChordMm: 34,
++      // Delta wings converge to a near-point tip (see getEffectiveTipChordMm) —
++      // stored here just to keep the data self-consistent; the slider for this
++      // is hidden in delta mode since it has no effect on the rendered shape.
++      tipChordMm: 6,
+       sweepDeg: 16,
+       dihedralDeg: 4.0,
+       camberPercent: 1.5,
+diff --git a/src/geometry/patterns2d.ts b/src/geometry/patterns2d.ts
+index 05f40c9..964b47e 100644
+--- a/src/geometry/patterns2d.ts
++++ b/src/geometry/patterns2d.ts
+@@ -75,8 +75,16 @@ export function generateFuselageFlatPattern(glider: GliderDesign): FlatPartSvg {
+     outlinePath,
+     slotCutouts,
+     scoreLines,
+-    dimensions: { widthMm: fuselage.lengthMm, heightMm: fuselage.maxHeightMm },
+-    boundingBox: { minX: 0, minY: 0, maxX: fuselage.lengthMm, maxY: fuselage.maxHeightMm },
++    dimensions: {
++      widthMm: Math.max(...points.map(p => p.x)) - Math.min(...points.map(p => p.x)),
++      heightMm: Math.max(...points.map(p => p.y)) - Math.min(...points.map(p => p.y)),
++    },
++    boundingBox: {
++      minX: Math.min(...points.map(p => p.x)),
++      minY: Math.min(...points.map(p => p.y)),
++      maxX: Math.max(...points.map(p => p.x)),
++      maxY: Math.max(...points.map(p => p.y)),
++    },
+   };
+ }
+ 
+diff --git a/src/physics/massBalance.ts b/src/physics/massBalance.ts
+index 8a859aa..7336905 100644
+--- a/src/physics/massBalance.ts
++++ b/src/physics/massBalance.ts
+@@ -24,15 +24,16 @@ export function getFuselageProfilePoints(fuselage: GliderDesign['fuselage']): {
+   }
+   // parasol_pylon intentionally leaves the spine at its normal height — the pylon
+   // mesh (built separately) bridges the gap up to the elevated wing.
+-  // bottom_saddle keeps the normal profile too; the wing seats against the belly line.
+ 
+   const effectiveMaxHeight = Math.max(maxHeightMm, minRequiredSpineY);
+   const nosePeakX = noseLengthMm;
+   const wingX = wingSlot.xPositionMm;
+   const wingLen = wingSlot.lengthMm;
+ 
++  let points: { x: number; y: number }[];
++
+   if (profileStyle === 'sport_jet') {
+-    return [
++    points = [
+       { x: 0, y: noseHeightMm * 0.4 },
+       { x: nosePeakX * 0.4, y: effectiveMaxHeight * 0.8 },
+       { x: nosePeakX, y: effectiveMaxHeight },
+@@ -45,10 +46,8 @@ export function getFuselageProfilePoints(fuselage: GliderDesign['fuselage']): {
+       { x: nosePeakX * 0.5, y: 0 },
+       { x: 0, y: 0 },
+     ];
+-  }
+-
+-  if (profileStyle === 'sky_streak') {
+-    return [
++  } else if (profileStyle === 'sky_streak') {
++    points = [
+       { x: 0, y: noseHeightMm * 0.5 },
+       { x: nosePeakX * 0.5, y: effectiveMaxHeight * 0.9 },
+       { x: nosePeakX, y: effectiveMaxHeight },
+@@ -59,24 +58,68 @@ export function getFuselageProfilePoints(fuselage: GliderDesign['fuselage']): {
+       { x: lengthMm, y: 0 },
+       { x: 0, y: 0 },
+     ];
++  } else {
++    // Default 'trainer' / 'curved_classic' with intelligent adaptive wing saddle/pylon
++    const pylonPeakY = Math.max(effectiveMaxHeight, slotTopY + 6);
++    points = [
++      { x: 0, y: noseHeightMm * 0.5 },
++      { x: nosePeakX * 0.3, y: noseHeightMm * 0.9 },
++      { x: nosePeakX * 0.7, y: pylonPeakY * 0.95 },
++      { x: Math.min(nosePeakX, wingX - 5), y: pylonPeakY },
++      { x: wingX + wingLen * 0.5, y: pylonPeakY },
++      { x: wingX + wingLen + 15, y: Math.max(wingSlot.yPositionMm + 4, pylonPeakY * 0.8) },
++      { x: lengthMm * 0.65, y: tailBoomHeightMm * 1.6 },
++      { x: lengthMm * 0.9, y: tailBoomHeightMm * 1.1 },
++      { x: lengthMm, y: tailBoomHeightMm },
++      { x: lengthMm, y: 0 },
++      { x: lengthMm * 0.6, y: 0 },
++      { x: 0, y: 0 },
++    ];
+   }
+ 
+-  // Default 'trainer' / 'curved_classic' with intelligent adaptive wing saddle/pylon
+-  const pylonPeakY = Math.max(effectiveMaxHeight, slotTopY + 6);
+-  return [
+-    { x: 0, y: noseHeightMm * 0.5 },
+-    { x: nosePeakX * 0.3, y: noseHeightMm * 0.9 },
+-    { x: nosePeakX * 0.7, y: pylonPeakY * 0.95 },
+-    { x: Math.min(nosePeakX, wingX - 5), y: pylonPeakY },
+-    { x: wingX + wingLen * 0.5, y: pylonPeakY },
+-    { x: wingX + wingLen + 15, y: Math.max(wingSlot.yPositionMm + 4, pylonPeakY * 0.8) },
+-    { x: lengthMm * 0.65, y: tailBoomHeightMm * 1.6 },
+-    { x: lengthMm * 0.9, y: tailBoomHeightMm * 1.1 },
+-    { x: lengthMm, y: tailBoomHeightMm },
+-    { x: lengthMm, y: 0 },
+-    { x: lengthMm * 0.6, y: 0 },
+-    { x: 0, y: 0 },
+-  ];
++  // Bottom-saddle mount: when the wing sits below the belly line, dip the
++  // fuselage's flat underside down to meet it (mirror of the top-saddle
++  // spine reinforcement above) so the wing is never left floating.
++  if (mountType === 'bottom_saddle') {
++    const wingBottomY = wingSlot.yPositionMm - wingSlot.thicknessMm / 2;
++    if (wingBottomY < -0.5) {
++      points = insertBellyDip(points, wingX, wingLen, wingBottomY - 2);
++    }
++  }
++
++  return points;
++}
++
++/**
++ * Inserts two new vertices into the flat belly segment of a fuselage profile
++ * so it dips down to meet a wing mounted below the baseline. Works generically
++ * across any profile style by locating the (nearly) flat, y≈0 segment whose
++ * X range contains the wing's slot — rather than hardcoding indices per style.
++ */
++function insertBellyDip(
++  points: { x: number; y: number }[],
++  wingX: number,
++  wingLen: number,
++  dipY: number
++): { x: number; y: number }[] {
++  const result = [...points];
++  for (let i = 0; i < result.length; i++) {
++    const p1 = result[i];
++    const p2 = result[(i + 1) % result.length];
++    if (Math.abs(p1.y) < 0.5 && Math.abs(p2.y) < 0.5) {
++      const xMin = Math.min(p1.x, p2.x);
++      const xMax = Math.max(p1.x, p2.x);
++      if (wingX >= xMin - 1 && wingX + wingLen <= xMax + 1) {
++        const goingRightToLeft = p1.x > p2.x;
++        const leftDip = { x: wingX, y: dipY };
++        const rightDip = { x: wingX + wingLen, y: dipY };
++        const insertion = goingRightToLeft ? [rightDip, leftDip] : [leftDip, rightDip];
++        result.splice(i + 1, 0, ...insertion);
++        return result;
++      }
++    }
++  }
++  return result;
+ }
+ 
+ /**
+diff --git a/src/types/glider.ts b/src/types/glider.ts
+index c9cfdd5..2b15f3e 100644
+--- a/src/types/glider.ts
++++ b/src/types/glider.ts
+@@ -69,14 +69,19 @@ export interface WingConfig {
+ 
+ /**
+  * The effective tip chord to use for area, MAC, and geometry calculations.
+- * Rectangular wings are defined by root chord alone — tipChordMm is ignored
+- * (and stays stale in state as the user tweaks other sliders), so every
+- * consumer of tip chord (physics AND geometry) must read through this
++ * - Rectangular wings are defined by root chord alone — tipChordMm is ignored
++ *   (and stays stale in state as the user tweaks other sliders).
++ * - Delta wings converge to a near-point tip regardless of the stored
++ *   tipChordMm, so switching Tapered -> Delta is visually distinct instead
++ *   of silently reusing the tapered trapezoid.
++ * Every consumer of tip chord (physics AND geometry) must read through this
+  * helper rather than wing.tipChordMm directly, or the rendered shape and
+  * the stability math can silently disagree.
+  */
+ export function getEffectiveTipChordMm(wing: Pick<WingConfig, 'planformType' | 'rootChordMm' | 'tipChordMm'>): number {
+-  return wing.planformType === 'rectangular' ? wing.rootChordMm : wing.tipChordMm;
++  if (wing.planformType === 'rectangular') return wing.rootChordMm;
++  if (wing.planformType === 'delta') return Math.max(4, wing.rootChordMm * 0.08);
++  return wing.tipChordMm;
+ }
+ 
+ export interface TailConfig {
