@@ -1,0 +1,199 @@
+import { GliderDesign, GliderMassBreakdown } from '@/types/glider';
+
+/**
+ * Approximate points for a stylized profile fuselage.
+ * Returns normalized vertices (X: 0->length, Y: 0->height)
+ */
+export function getFuselageProfilePoints(fuselage: GliderDesign['fuselage']): { x: number; y: number }[] {
+  const { lengthMm, maxHeightMm, noseLengthMm, noseHeightMm, tailBoomHeightMm, profileStyle } = fuselage;
+
+  const nosePeakX = noseLengthMm;
+  const wingY = fuselage.wingSlot.yPositionMm;
+
+  if (profileStyle === 'sport_jet') {
+    return [
+      { x: 0, y: noseHeightMm * 0.4 },
+      { x: nosePeakX * 0.4, y: maxHeightMm * 0.8 },
+      { x: nosePeakX, y: maxHeightMm },
+      { x: lengthMm * 0.6, y: maxHeightMm * 0.7 },
+      { x: lengthMm * 0.85, y: tailBoomHeightMm * 1.5 },
+      { x: lengthMm, y: tailBoomHeightMm },
+      { x: lengthMm, y: 0 },
+      { x: lengthMm * 0.5, y: 0 },
+      { x: nosePeakX * 0.5, y: 0 },
+      { x: 0, y: 0 },
+    ];
+  }
+
+  if (profileStyle === 'sky_streak') {
+    return [
+      { x: 0, y: noseHeightMm * 0.5 },
+      { x: nosePeakX * 0.5, y: maxHeightMm * 0.9 },
+      { x: nosePeakX, y: maxHeightMm },
+      { x: nosePeakX + 80, y: maxHeightMm * 0.6 },
+      { x: lengthMm * 0.75, y: tailBoomHeightMm * 1.2 },
+      { x: lengthMm, y: tailBoomHeightMm },
+      { x: lengthMm, y: 0 },
+      { x: 0, y: 0 },
+    ];
+  }
+
+  // Default 'trainer' / 'curved_classic'
+  return [
+    { x: 0, y: noseHeightMm * 0.5 },
+    { x: nosePeakX * 0.3, y: noseHeightMm * 0.9 },
+    { x: nosePeakX * 0.7, y: maxHeightMm * 0.95 },
+    { x: nosePeakX, y: maxHeightMm },
+    { x: nosePeakX + 40, y: Math.max(wingY + 8, maxHeightMm * 0.85) },
+    { x: lengthMm * 0.65, y: tailBoomHeightMm * 1.6 },
+    { x: lengthMm * 0.9, y: tailBoomHeightMm * 1.1 },
+    { x: lengthMm, y: tailBoomHeightMm },
+    { x: lengthMm, y: 0 },
+    { x: lengthMm * 0.6, y: 0 },
+    { x: 0, y: 0 },
+  ];
+}
+
+/**
+ * Computes polygon area and centroid using Shoelace formula
+ */
+export function computePolygonProperties(points: { x: number; y: number }[]): {
+  areaMm2: number;
+  centroidX: number;
+  centroidY: number;
+} {
+  let area = 0;
+  let cx = 0;
+  let cy = 0;
+  const n = points.length;
+
+  for (let i = 0; i < n; i++) {
+    const p1 = points[i];
+    const p2 = points[(i + 1) % n];
+    const cross = p1.x * p2.y - p2.x * p1.y;
+    area += cross;
+    cx += (p1.x + p2.x) * cross;
+    cy += (p1.y + p2.y) * cross;
+  }
+
+  area = Math.abs(area) / 2;
+  if (area === 0) return { areaMm2: 0, centroidX: 0, centroidY: 0 };
+
+  cx = Math.abs(cx) / (6 * area);
+  cy = Math.abs(cy) / (6 * area);
+
+  return { areaMm2: area, centroidX: cx, centroidY: cy };
+}
+
+/**
+ * Calculates masses and mass centers for all glider components
+ */
+export function calculateGliderMassAndCG(glider: GliderDesign): {
+  breakdown: GliderMassBreakdown;
+  cgXMm: number;
+  cgYMm: number;
+  cgZMm: number;
+  unballastedMassGrams: number;
+  unballastedCgXMm: number;
+} {
+  const balsaDensityKgM3 = glider.material.densityKgM3;
+  // Convert density: 1 kg/m³ = 1e-6 g/mm³
+  const densityGPerMm3 = balsaDensityKgM3 * 1e-6;
+
+  // 1. Fuselage
+  const fusePoly = getFuselageProfilePoints(glider.fuselage);
+  const { areaMm2: fuseAreaMm2, centroidX: fuseCx, centroidY: fuseCy } = computePolygonProperties(fusePoly);
+  const fuseVolumeMm3 = fuseAreaMm2 * glider.fuselage.thicknessMm;
+  const fuselageGrams = fuseVolumeMm3 * densityGPerMm3;
+
+  // 2. Wing
+  // Trapezoidal planform: S = (c_root + c_tip) / 2 * span
+  const wingAreaMm2 = ((glider.wing.rootChordMm + glider.wing.tipChordMm) / 2) * glider.wing.spanMm;
+  const wingVolumeMm3 = wingAreaMm2 * glider.wing.thicknessMm;
+  const wingGrams = wingVolumeMm3 * densityGPerMm3;
+
+  // Wing centroid along X:
+  // For trapezoid: centroid from root LE = (rootChord + 2 * tipChord) / (3 * (rootChord + tipChord)) * chordLine + sweep offset
+  const cr = glider.wing.rootChordMm;
+  const ct = glider.wing.tipChordMm;
+  const span = glider.wing.spanMm;
+  const sweepRad = (glider.wing.sweepDeg * Math.PI) / 180;
+  const sweepOffsetAtMidHalfSpan = (span / 4) * Math.tan(sweepRad);
+  const chordCentroidRelToLE = ((cr + 2 * ct) / (3 * (cr + ct))) * ((cr + ct) / 2);
+  const wingCx = glider.fuselage.wingSlot.xPositionMm + chordCentroidRelToLE + sweepOffsetAtMidHalfSpan * 0.5;
+  const wingCy = glider.fuselage.wingSlot.yPositionMm;
+
+  // 3. Tail (Horizontal Stabilizer)
+  const tailCr = glider.horizontalStabilizer.rootChordMm;
+  const tailCt = glider.horizontalStabilizer.tipChordMm;
+  const tailSpan = glider.horizontalStabilizer.spanMm;
+  const tailAreaMm2 = ((tailCr + tailCt) / 2) * tailSpan;
+  const tailVolumeMm3 = tailAreaMm2 * glider.horizontalStabilizer.thicknessMm;
+  const tailGrams = tailVolumeMm3 * densityGPerMm3;
+
+  const tailSweepRad = (glider.horizontalStabilizer.sweepDeg * Math.PI) / 180;
+  const tailSweepOffset = (tailSpan / 4) * Math.tan(tailSweepRad);
+  const tailChordCentroid = ((tailCr + 2 * tailCt) / (3 * (tailCr + tailCt))) * ((tailCr + tailCt) / 2);
+  const tailCx = glider.fuselage.tailSlot.xPositionMm + tailChordCentroid + tailSweepOffset * 0.5;
+  const tailCy = glider.fuselage.tailSlot.yPositionMm;
+
+  // 4. Fin (Vertical Stabilizer)
+  let finGrams = 0;
+  let finCx = tailCx;
+  let finCy = tailCy + glider.verticalStabilizer.heightMm * 0.4;
+
+  if (!glider.verticalStabilizer.isIntegralWithFuselage) {
+    const finCr = glider.verticalStabilizer.rootChordMm;
+    const finCt = glider.verticalStabilizer.tipChordMm;
+    const finH = glider.verticalStabilizer.heightMm;
+    const finAreaMm2 = ((finCr + finCt) / 2) * finH;
+    finGrams = finAreaMm2 * glider.verticalStabilizer.thicknessMm * densityGPerMm3;
+    const finSweepRad = (glider.verticalStabilizer.sweepDeg * Math.PI) / 180;
+    finCx = glider.fuselage.tailSlot.xPositionMm + ((finCr + 2 * finCt) / (3 * (finCr + finCt))) * ((finCr + finCt) / 2) + (finH / 2) * Math.tan(finSweepRad);
+    finCy = glider.fuselage.tailSlot.yPositionMm + finH * 0.4;
+  }
+
+  // 5. Unballasted Airframe totals
+  const unballastedMassGrams = fuselageGrams + wingGrams + tailGrams + finGrams;
+  const unballastedMomentX =
+    fuselageGrams * fuseCx +
+    wingGrams * wingCx +
+    tailGrams * tailCx +
+    finGrams * finCx;
+  const unballastedMomentY =
+    fuselageGrams * fuseCy +
+    wingGrams * wingCy +
+    tailGrams * tailCy +
+    finGrams * finCy;
+
+  const unballastedCgXMm = unballastedMassGrams > 0 ? unballastedMomentX / unballastedMassGrams : 0;
+  const unballastedCgYMm = unballastedMassGrams > 0 ? unballastedMomentY / unballastedMassGrams : 0;
+
+  // 6. Nose Ballast
+  const ballastGrams = Math.max(0, glider.fuselage.noseBallastGrams);
+  const ballastCx = glider.fuselage.ballastPositionXMm;
+  const ballastCy = glider.fuselage.noseHeightMm * 0.5;
+
+  const totalGrams = unballastedMassGrams + ballastGrams;
+  const totalMomentX = unballastedMomentX + ballastGrams * ballastCx;
+  const totalMomentY = unballastedMomentY + ballastGrams * ballastCy;
+
+  const cgXMm = totalGrams > 0 ? totalMomentX / totalGrams : 0;
+  const cgYMm = totalGrams > 0 ? totalMomentY / totalGrams : 0;
+
+  return {
+    breakdown: {
+      fuselageGrams: Number(fuselageGrams.toFixed(2)),
+      wingGrams: Number(wingGrams.toFixed(2)),
+      tailGrams: Number(tailGrams.toFixed(2)),
+      finGrams: Number(finGrams.toFixed(2)),
+      ballastGrams: Number(ballastGrams.toFixed(2)),
+      totalGrams: Number(totalGrams.toFixed(2)),
+    },
+    cgXMm: Number(cgXMm.toFixed(2)),
+    cgYMm: Number(cgYMm.toFixed(2)),
+    cgZMm: 0,
+    unballastedMassGrams: Number(unballastedMassGrams.toFixed(2)),
+    unballastedCgXMm: Number(unballastedCgXMm.toFixed(2)),
+  };
+}
