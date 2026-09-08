@@ -6,6 +6,7 @@ import {
   generateFuselageFlatPattern,
   generateTailFlatPattern,
   generateWingFlatPattern,
+  generatePylonFlatPattern,
 } from '@/geometry/patterns2d';
 import { Scissors, Ruler, Download, Info } from 'lucide-react';
 
@@ -20,6 +21,7 @@ export const Pattern2DViewport: React.FC<Pattern2DViewportProps> = ({ glider }) 
   const fuselage = generateFuselageFlatPattern(glider);
   const wing = generateWingFlatPattern(glider);
   const tail = generateTailFlatPattern(glider);
+  const pylon = glider.fuselage.mountType === 'parasol_pylon' ? generatePylonFlatPattern(glider) : null;
 
   // Download SVG pattern function
   const downloadSvg = () => {
@@ -39,7 +41,7 @@ export const Pattern2DViewport: React.FC<Pattern2DViewportProps> = ({ glider }) 
 
   // Sheet dimensions (standard 100mm x 450mm balsa plank preview)
   const sheetWidth = Math.max(420, glider.fuselage.lengthMm + 40, glider.wing.spanMm + 40);
-  const sheetHeight = 240;
+  const sheetHeight = pylon ? 280 : 240;
 
   return (
     <div className="relative w-full h-full flex flex-col bg-slate-950 text-slate-100 overflow-hidden select-none">
@@ -127,7 +129,7 @@ export const Pattern2DViewport: React.FC<Pattern2DViewportProps> = ({ glider }) 
                 stroke="#ef4444"
                 strokeWidth="1.2"
               />
-              {/* Wing & Tail Slots */}
+              {/* Wing & Tail Slots (enclosed cuts, through-slot / tail only) */}
               {fuselage.slotCutouts.map((slotD, idx) => (
                 <path
                   key={idx}
@@ -135,6 +137,17 @@ export const Pattern2DViewport: React.FC<Pattern2DViewportProps> = ({ glider }) 
                   fill="#0f172a"
                   stroke="#fbbf24"
                   strokeWidth="1.2"
+                />
+              ))}
+              {/* Glue-seat guides (saddle mounts — not cut, just alignment marks) */}
+              {fuselage.scoreLines.map((lineD, idx) => (
+                <path
+                  key={idx}
+                  d={lineD}
+                  fill="none"
+                  stroke="#06b6d4"
+                  strokeWidth="1.2"
+                  strokeDasharray="3 2"
                 />
               ))}
               <text x={fuselage.dimensions.widthMm / 2} y="15" fill="#f59e0b" fontSize="9" textAnchor="middle" fontWeight="bold">
@@ -177,6 +190,21 @@ export const Pattern2DViewport: React.FC<Pattern2DViewportProps> = ({ glider }) 
                 Tail ({tail.dimensions.heightMm}mm)
               </text>
             </g>
+
+            {/* 4. Parasol Pylon Strut (only when mounted via elevated cabane strut) */}
+            {pylon && (
+              <g transform={`translate(${Math.max(glider.wing.spanMm + 40, 260)}, 175)`}>
+                <path
+                  d={pylon.outlinePath}
+                  fill="#2a1d13"
+                  stroke="#ef4444"
+                  strokeWidth="1.2"
+                />
+                <text x={pylon.dimensions.widthMm / 2} y="-4" fill="#f59e0b" fontSize="8" textAnchor="middle" fontWeight="bold">
+                  Pylon ({pylon.dimensions.widthMm}×{Math.round(pylon.dimensions.heightMm)}mm)
+                </text>
+              </g>
+            )}
 
             {/* Scale Calibration Ruler (50mm / 2 inches) */}
             {showRuler && (
