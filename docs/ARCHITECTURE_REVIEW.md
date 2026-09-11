@@ -204,3 +204,22 @@ Recommend starting with **(1)**, since save/load is the first place a user
 would concretely feel the benefit, and it's a prerequisite for (2)'s
 validation results eventually being something worth persisting alongside a
 design.
+
+## 10. Design document & local persistence phase
+
+The next foundation layer has now been implemented locally in `src/design/`
+and `src/types/design-document.ts` without restructuring `GliderDesign`.
+
+- `PlaneDesignDocument` adds `id`, `schemaVersion`, `version`, metadata, and
+  optional fork provenance around the existing engineering payload.
+- JSON serialization/deserialization is validated at the document boundary.
+- Browser local storage provides a first save/load mechanism without coupling
+  the engineering model to a database.
+- JSON import/export makes designs portable between browser sessions and
+  provides the eventual payload needed for social sharing and forking.
+- Fork provenance is modeled now so the later social layer can create immutable
+  design lineages rather than overwriting a parent design.
+
+This remains intentionally client-only. Authentication, cloud persistence,
+comments, likes, and a social feed should be added only after the local design
+contract is stable.
