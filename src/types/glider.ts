@@ -61,7 +61,6 @@ export interface WingConfig {
   sweepDeg: number;           // Leading edge sweep angle (0° - 25°)
   dihedralDeg: number;        // Dihedral angle per wing half (0° - 15°)
   camberPercent: number;      // Wood pre-curvature / camber (0% = flat, 4-6% = cambered)
-  incidenceDeg: number;       // Angle of incidence relative to fuselage
   thicknessMm: number;        // Wing sheet thickness
   slotTabWidthMm: number;     // Width of center interlocking tab
   hasLeadingEdgeTaper: boolean;
@@ -84,12 +83,21 @@ export function getEffectiveTipChordMm(wing: Pick<WingConfig, 'planformType' | '
   return wing.tipChordMm;
 }
 
+/**
+ * Maps the app's user-facing planform vocabulary onto the canonical geometry
+ * engine's shape kinds (src/geometry/core.ts). Rectangular/tapered/delta are
+ * all straight-tapered trapezoids once their effective tip chord is resolved
+ * (see getEffectiveTipChordMm) — only 'elliptical' needs curved sampling.
+ */
+export function getWingPlanformKind(planformType: WingPlanformType): 'straight' | 'elliptical' {
+  return planformType === 'elliptical' ? 'elliptical' : 'straight';
+}
+
 export interface TailConfig {
   spanMm: number;             // Horizontal stabilizer span
   rootChordMm: number;        // Root chord
   tipChordMm: number;         // Tip chord
   sweepDeg: number;           // Sweep angle
-  incidenceDeg: number;       // Elevator trim incidence (relative to fuselage)
   thicknessMm: number;
 }
 

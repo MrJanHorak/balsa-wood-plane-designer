@@ -1,6 +1,7 @@
 import * as THREE from 'three';
-import { GliderDesign, getEffectiveTipChordMm } from '@/types/glider';
+import { GliderDesign, getEffectiveTipChordMm, getWingPlanformKind } from '@/types/glider';
 import { getFuselageProfilePoints } from '@/physics/massBalance';
+import { calculateWingPlanformPoints } from '@/geometry/core';
 
 /**
  * Creates procedural balsa wood grain texture using HTML Canvas
@@ -59,7 +60,7 @@ export function createFuselageMesh(glider: GliderDesign, balsaMaterial: THREE.Ma
   group.name = 'fuselage_group';
 
   const { fuselage } = glider;
-  const rawPoints = getFuselageProfilePoints(fuselage);
+  const rawPoints = getFuselageProfilePoints(glider);
 
   const shape = new THREE.Shape();
   if (rawPoints.length > 0) {
@@ -170,53 +171,22 @@ export function createWingMesh(glider: GliderDesign, balsaMaterial: THREE.Materi
   wingGroup.name = 'wing_assembly';
 
   const { wing, fuselage } = glider;
-  const halfSpan = wing.spanMm / 2;
   const cr = wing.rootChordMm;
   const ct = getEffectiveTipChordMm(wing);
-  const sweepRad = (wing.sweepDeg * Math.PI) / 180;
-  const sweepOffsetAtTip = halfSpan * Math.tan(sweepRad);
 
-  // Wing Panel 2D Shape in X-Z plane
+  // Wing Panel 2D Shape in X-Z plane — sourced from the canonical planform
+  // engine (src/geometry/core.ts) so the 3D shape can never drift from what
+  // the 2D pattern exporter and the physics engine compute for the same wing.
   function createHalfWingGeometry(): THREE.BufferGeometry {
+    const fullPlanform = calculateWingPlanformPoints(getWingPlanformKind(wing.planformType), cr, ct, wing.spanMm, wing.sweepDeg);
+    const halfPlanform = fullPlanform.filter((p) => p.y >= -0.001);
+
     const shape = new THREE.Shape();
-
-    if (wing.planformType === 'elliptical') {
-      // Sample elliptical planform
-      const segments = 16;
-      const tePoints: { x: number; z: number }[] = [];
-      const lePoints: { x: number; z: number }[] = [];
-
-      for (let i = 0; i <= segments; i++) {
-        const t = i / segments; // 0 at root, 1 at tip
-        const z = t * halfSpan;
-        const ellipseFactor = Math.sqrt(Math.max(0, 1 - t * t));
-        const chordAtZ = Math.max(ct * 0.4, cr * ellipseFactor);
-        const sweepZ = z * Math.tan(sweepRad);
-
-        // Standard aerodynamic quarter-chord locus
-        const leX = sweepZ + 0.25 * (cr - chordAtZ);
-        const teX = leX + chordAtZ;
-
-        lePoints.push({ x: leX, z });
-        tePoints.push({ x: teX, z });
-      }
-
-      shape.moveTo(lePoints[0].x, lePoints[0].z);
-      for (let i = 1; i <= segments; i++) {
-        shape.lineTo(lePoints[i].x, lePoints[i].z);
-      }
-      for (let i = segments; i >= 0; i--) {
-        shape.lineTo(tePoints[i].x, tePoints[i].z);
-      }
-      shape.closePath();
-    } else {
-      // Tapered, Rectangular, or Delta
-      shape.moveTo(0, 0);
-      shape.lineTo(cr, 0);
-      shape.lineTo(ct + sweepOffsetAtTip, halfSpan);
-      shape.lineTo(sweepOffsetAtTip, halfSpan);
-      shape.closePath();
+    shape.moveTo(halfPlanform[0].x, halfPlanform[0].y);
+    for (let i = 1; i < halfPlanform.length; i++) {
+      shape.lineTo(halfPlanform[i].x, halfPlanform[i].y);
     }
+    shape.closePath();
 
     const extrudeSettings: THREE.ExtrudeGeometryOptions = {
       depth: wing.thicknessMm,

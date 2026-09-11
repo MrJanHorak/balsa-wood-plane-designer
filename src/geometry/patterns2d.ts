@@ -1,5 +1,6 @@
-import { GliderDesign, getEffectiveTipChordMm } from '@/types/glider';
+import { GliderDesign, getEffectiveTipChordMm, getWingPlanformKind } from '@/types/glider';
 import { getFuselageProfilePoints } from '@/physics/massBalance';
+import { Point2D, calculateWingPlanformPoints, calculateTrapezoidPlanformPoints, calculateBoundingBox } from '@/geometry/core';
 
 export interface FlatPartSvg {
   id: string;
@@ -11,17 +12,21 @@ export interface FlatPartSvg {
   boundingBox: { minX: number; minY: number; maxX: number; maxY: number };
 }
 
+/** Renders a closed point list as an SVG path's `d` attribute. */
+function pointsToPath(points: Point2D[]): string {
+  if (points.length === 0) return '';
+  return `M ${points[0].x.toFixed(2)} ${points[0].y.toFixed(2)} ` +
+    points.slice(1).map(p => `L ${p.x.toFixed(2)} ${p.y.toFixed(2)}`).join(' ') + ' Z';
+}
+
 /**
  * Generates 2D SVG path data for the Profile Fuselage including wing and tail slot cutouts
  */
 export function generateFuselageFlatPattern(glider: GliderDesign): FlatPartSvg {
   const { fuselage } = glider;
-  const points = getFuselageProfilePoints(fuselage);
+  const points = getFuselageProfilePoints(glider);
 
-  // Fuselage outline path: M x0 y0 L x1 y1 ... Z
-  const outlinePath = points.length > 0
-    ? `M ${points[0].x} ${points[0].y} ` + points.slice(1).map(p => `L ${p.x} ${p.y}`).join(' ') + ' Z'
-    : '';
+  const outlinePath = pointsToPath(points);
 
   const slotCutouts: string[] = [];
   const scoreLines: string[] = [];
@@ -41,14 +46,10 @@ export function generateFuselageFlatPattern(glider: GliderDesign): FlatPartSvg {
   const wp3 = { x: ws.xPositionMm, y: ws.yPositionMm + halfThick };
 
   if (fuselage.mountType === 'through_slot') {
-    slotCutouts.push(
-      `M ${wp0.x.toFixed(2)} ${wp0.y.toFixed(2)} L ${wp1.x.toFixed(2)} ${wp1.y.toFixed(2)} L ${wp2.x.toFixed(2)} ${wp2.y.toFixed(2)} L ${wp3.x.toFixed(2)} ${wp3.y.toFixed(2)} Z`
-    );
+    slotCutouts.push(pointsToPath([wp0, wp1, wp2, wp3]));
   } else if (fuselage.mountType === 'top_saddle' || fuselage.mountType === 'bottom_saddle') {
     // Glue-seat guide: a dashed rectangle showing exactly where the wing root sits
-    scoreLines.push(
-      `M ${wp0.x.toFixed(2)} ${wp0.y.toFixed(2)} L ${wp1.x.toFixed(2)} ${wp1.y.toFixed(2)} L ${wp2.x.toFixed(2)} ${wp2.y.toFixed(2)} L ${wp3.x.toFixed(2)} ${wp3.y.toFixed(2)} Z`
-    );
+    scoreLines.push(pointsToPath([wp0, wp1, wp2, wp3]));
   }
   // parasol_pylon: no mark on the fuselage itself — the pylon is its own flat part
   // (see generatePylonFlatPattern) and glues to the spine independently.
@@ -65,9 +66,9 @@ export function generateFuselageFlatPattern(glider: GliderDesign): FlatPartSvg {
   const tp2 = { x: ts.xPositionMm + ts.lengthMm * cosT, y: ts.yPositionMm + ts.lengthMm * sinT + halfTailThick };
   const tp3 = { x: ts.xPositionMm, y: ts.yPositionMm + halfTailThick };
 
-  slotCutouts.push(
-    `M ${tp0.x.toFixed(2)} ${tp0.y.toFixed(2)} L ${tp1.x.toFixed(2)} ${tp1.y.toFixed(2)} L ${tp2.x.toFixed(2)} ${tp2.y.toFixed(2)} L ${tp3.x.toFixed(2)} ${tp3.y.toFixed(2)} Z`
-  );
+  slotCutouts.push(pointsToPath([tp0, tp1, tp2, tp3]));
+
+  const bbox = calculateBoundingBox(points);
 
   return {
     id: 'fuselage',
@@ -75,16 +76,8 @@ export function generateFuselageFlatPattern(glider: GliderDesign): FlatPartSvg {
     outlinePath,
     slotCutouts,
     scoreLines,
-    dimensions: {
-      widthMm: Math.max(...points.map(p => p.x)) - Math.min(...points.map(p => p.x)),
-      heightMm: Math.max(...points.map(p => p.y)) - Math.min(...points.map(p => p.y)),
-    },
-    boundingBox: {
-      minX: Math.min(...points.map(p => p.x)),
-      minY: Math.min(...points.map(p => p.y)),
-      maxX: Math.max(...points.map(p => p.x)),
-      maxY: Math.max(...points.map(p => p.y)),
-    },
+    dimensions: { widthMm: bbox.maxX - bbox.minX, heightMm: bbox.maxY - bbox.minY },
+    boundingBox: bbox,
   };
 }
 
@@ -102,17 +95,17 @@ export function generatePylonFlatPattern(glider: GliderDesign): FlatPartSvg {
   const pylonHeightMm = Math.max(0, topPylonY - (baseSpineY - 4));
 
   // Drawn root-up in its own local frame: (0,0) at bottom-left of the strut base
-  const p0 = { x: 0, y: 0 };
-  const p1 = { x: pylonW, y: 0 };
-  const p2 = { x: pylonW * 0.9, y: pylonHeightMm };
-  const p3 = { x: pylonW * 0.1, y: pylonHeightMm };
-
-  const outlinePath = `M ${p0.x} ${p0.y} L ${p1.x} ${p1.y} L ${p2.x.toFixed(2)} ${p2.y.toFixed(2)} L ${p3.x.toFixed(2)} ${p3.y.toFixed(2)} Z`;
+  const points: Point2D[] = [
+    { x: 0, y: 0 },
+    { x: pylonW, y: 0 },
+    { x: pylonW * 0.9, y: pylonHeightMm },
+    { x: pylonW * 0.1, y: pylonHeightMm },
+  ];
 
   return {
     id: 'parasol_pylon',
     name: 'Parasol Pylon (Cabane Strut)',
-    outlinePath,
+    outlinePath: pointsToPath(points),
     slotCutouts: [],
     scoreLines: [],
     dimensions: { widthMm: pylonW, heightMm: pylonHeightMm },
@@ -121,67 +114,17 @@ export function generatePylonFlatPattern(glider: GliderDesign): FlatPartSvg {
 }
 
 /**
- * Generates 2D SVG path data for the 1-piece Main Wing (with center dihedral score line and interlocking slot tab)
+ * Generates 2D SVG path data for the 1-piece Main Wing (with center dihedral score line and interlocking slot tab).
+ * Sourced from the canonical planform engine (src/geometry/core.ts) — the same
+ * function the 3D renderer and physics engine use for this wing's shape.
  */
 export function generateWingFlatPattern(glider: GliderDesign): FlatPartSvg {
   const { wing } = glider;
-  const halfSpan = wing.spanMm / 2;
   const cr = wing.rootChordMm;
   const ct = getEffectiveTipChordMm(wing);
-  const sweepRad = (wing.sweepDeg * Math.PI) / 180;
-  const sweepOffset = halfSpan * Math.tan(sweepRad);
 
-  let outlinePath: string;
-  let maxChordExtent = Math.max(cr, ct) + sweepOffset;
-
-  if (wing.planformType === 'elliptical') {
-    // Mirror the same elliptical sampling used for the 3D mesh so the flat
-    // pattern matches the rendered preview exactly.
-    const segments = 16;
-    const lePoints: { x: number; y: number }[] = [];
-    const tePoints: { x: number; y: number }[] = [];
-
-    for (let i = 0; i <= segments; i++) {
-      const t = i / segments; // 0 at root, 1 at tip
-      const ellipseFactor = Math.sqrt(Math.max(0, 1 - t * t));
-      const chordAtT = Math.max(ct * 0.4, cr * ellipseFactor);
-      const sweepAtT = t * halfSpan * Math.tan(sweepRad);
-      const leX = sweepAtT + 0.25 * (cr - chordAtT);
-      const teX = leX + chordAtT;
-      lePoints.push({ x: leX, y: t * halfSpan });
-      tePoints.push({ x: teX, y: t * halfSpan });
-    }
-
-    // Build the closed outline by walking the leading edge root→tip, across the
-    // tip, back down the trailing edge tip→root, mirrored to the other half-span.
-    const pts: { x: number; y: number }[] = [
-      ...lePoints.map(p => ({ x: p.x, y: p.y })),
-      ...[...tePoints].reverse().map(p => ({ x: p.x, y: p.y })),
-      ...[...lePoints].reverse().slice(1).map(p => ({ x: p.x, y: -p.y })),
-      ...tePoints.slice(1).map(p => ({ x: p.x, y: -p.y })),
-    ];
-    outlinePath = `M ${pts[0].x.toFixed(2)} ${pts[0].y.toFixed(2)} ` +
-      pts.slice(1).map(p => `L ${p.x.toFixed(2)} ${p.y.toFixed(2)}`).join(' ') + ' Z';
-    maxChordExtent = Math.max(...pts.map(p => p.x));
-  } else {
-    // Tapered, Rectangular, or Delta: straight-edged trapezoid planform
-    // Full unrolled wing planform centered on X=0 (root chord):
-    // Left Tip -> Left Root -> Right Root -> Right Tip
-    // Top-down: X is chord (0 to cr), Y is span (-halfSpan to +halfSpan)
-    const leftTipLE = { x: sweepOffset, y: -halfSpan };
-    const leftTipTE = { x: sweepOffset + ct, y: -halfSpan };
-    const rootLE = { x: 0, y: 0 };
-    const rootTE = { x: cr, y: 0 };
-    const rightTipTE = { x: sweepOffset + ct, y: halfSpan };
-    const rightTipLE = { x: sweepOffset, y: halfSpan };
-
-    outlinePath = `M ${rootLE.x} ${rootLE.y} ` +
-      `L ${leftTipLE.x.toFixed(2)} ${leftTipLE.y.toFixed(2)} ` +
-      `L ${leftTipTE.x.toFixed(2)} ${leftTipTE.y.toFixed(2)} ` +
-      `L ${rootTE.x} ${rootTE.y} ` +
-      `L ${rightTipTE.x.toFixed(2)} ${rightTipTE.y.toFixed(2)} ` +
-      `L ${rightTipLE.x.toFixed(2)} ${rightTipLE.y.toFixed(2)} Z`;
-  }
+  const points = calculateWingPlanformPoints(getWingPlanformKind(wing.planformType), cr, ct, wing.spanMm, wing.sweepDeg);
+  const bbox = calculateBoundingBox(points);
 
   // Center Score Line along root chord (for bending dihedral angle)
   const scoreLines = [`M 0 0 L ${cr} 0`];
@@ -189,11 +132,11 @@ export function generateWingFlatPattern(glider: GliderDesign): FlatPartSvg {
   return {
     id: 'main_wing',
     name: 'Main Wing Panel',
-    outlinePath,
+    outlinePath: pointsToPath(points),
     slotCutouts: [],
     scoreLines,
-    dimensions: { widthMm: maxChordExtent, heightMm: wing.spanMm },
-    boundingBox: { minX: 0, minY: -halfSpan, maxX: maxChordExtent, maxY: halfSpan },
+    dimensions: { widthMm: bbox.maxX - bbox.minX, heightMm: bbox.maxY - bbox.minY },
+    boundingBox: bbox,
   };
 }
 
@@ -202,33 +145,16 @@ export function generateWingFlatPattern(glider: GliderDesign): FlatPartSvg {
  */
 export function generateTailFlatPattern(glider: GliderDesign): FlatPartSvg {
   const { horizontalStabilizer: tail } = glider;
-  const halfSpan = tail.spanMm / 2;
-  const cr = tail.rootChordMm;
-  const ct = tail.tipChordMm;
-  const sweepRad = (tail.sweepDeg * Math.PI) / 180;
-  const sweepOffset = halfSpan * Math.tan(sweepRad);
-
-  const leftTipLE = { x: sweepOffset, y: -halfSpan };
-  const leftTipTE = { x: sweepOffset + ct, y: -halfSpan };
-  const rootLE = { x: 0, y: 0 };
-  const rootTE = { x: cr, y: 0 };
-  const rightTipTE = { x: sweepOffset + ct, y: halfSpan };
-  const rightTipLE = { x: sweepOffset, y: halfSpan };
-
-  const outlinePath = `M ${rootLE.x} ${rootLE.y} ` +
-    `L ${leftTipLE.x.toFixed(2)} ${leftTipLE.y.toFixed(2)} ` +
-    `L ${leftTipTE.x.toFixed(2)} ${leftTipTE.y.toFixed(2)} ` +
-    `L ${rootTE.x} ${rootTE.y} ` +
-    `L ${rightTipTE.x.toFixed(2)} ${rightTipTE.y.toFixed(2)} ` +
-    `L ${rightTipLE.x.toFixed(2)} ${rightTipLE.y.toFixed(2)} Z`;
+  const points = calculateTrapezoidPlanformPoints(tail.rootChordMm, tail.tipChordMm, tail.spanMm, tail.sweepDeg);
+  const bbox = calculateBoundingBox(points);
 
   return {
     id: 'horizontal_tail',
     name: 'Horizontal Stabilizer',
-    outlinePath,
+    outlinePath: pointsToPath(points),
     slotCutouts: [],
     scoreLines: [],
-    dimensions: { widthMm: sweepOffset + Math.max(cr, ct), heightMm: tail.spanMm },
-    boundingBox: { minX: 0, minY: -halfSpan, maxX: sweepOffset + Math.max(cr, ct), maxY: halfSpan },
+    dimensions: { widthMm: bbox.maxX - bbox.minX, heightMm: bbox.maxY - bbox.minY },
+    boundingBox: bbox,
   };
 }

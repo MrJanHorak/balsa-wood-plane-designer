@@ -1,10 +1,19 @@
-import { GliderDesign, GliderMassBreakdown, getEffectiveTipChordMm } from '@/types/glider';
+import { GliderDesign, GliderMassBreakdown, getEffectiveTipChordMm, getWingPlanformKind } from '@/types/glider';
+import {
+  Point2D,
+  polygonArea,
+  polygonCentroid,
+  calculateWingPlanformPoints,
+  calculateTrapezoidPlanformPoints,
+} from '@/geometry/core';
 
 /**
  * Approximate points for a stylized profile fuselage.
  * Returns normalized vertices (X: 0->length, Y: 0->height)
  */
-export function getFuselageProfilePoints(fuselage: GliderDesign['fuselage']): { x: number; y: number }[] {
+export function getFuselageProfilePoints(glider: GliderDesign): Point2D[] {
+  const { fuselage, verticalStabilizer: fin } = glider;
+
   // 1. Custom Draggable Nodes Mode
   if (fuselage.profileStyle === 'custom' && fuselage.customNodes && fuselage.customNodes.length >= 3) {
     return fuselage.customNodes.map((n) => ({ x: n.xMm, y: n.yMm }));
@@ -30,7 +39,7 @@ export function getFuselageProfilePoints(fuselage: GliderDesign['fuselage']): { 
   const wingX = wingSlot.xPositionMm;
   const wingLen = wingSlot.lengthMm;
 
-  let points: { x: number; y: number }[];
+  let points: Point2D[];
 
   if (profileStyle === 'sport_jet') {
     points = [
@@ -87,6 +96,15 @@ export function getFuselageProfilePoints(fuselage: GliderDesign['fuselage']): { 
     }
   }
 
+  // Integral vertical fin: when the fin is "cut from the same sheet" as the
+  // fuselage rather than built as a separate slotted piece, it must actually
+  // appear in the fuselage's own silhouette — otherwise it's invisible in
+  // the 3D view AND its mass silently vanishes from physics (neither the
+  // renderer nor calculateGliderMassAndCG ever draws/weighs it elsewhere).
+  if (fin.isIntegralWithFuselage && fin.heightMm > 0) {
+    points = insertIntegralFinBump(points, fuselage.tailSlot.xPositionMm, fin);
+  }
+
   return points;
 }
 
@@ -96,12 +114,7 @@ export function getFuselageProfilePoints(fuselage: GliderDesign['fuselage']): { 
  * across any profile style by locating the (nearly) flat, y≈0 segment whose
  * X range contains the wing's slot — rather than hardcoding indices per style.
  */
-function insertBellyDip(
-  points: { x: number; y: number }[],
-  wingX: number,
-  wingLen: number,
-  dipY: number
-): { x: number; y: number }[] {
+function insertBellyDip(points: Point2D[], wingX: number, wingLen: number, dipY: number): Point2D[] {
   const result = [...points];
   for (let i = 0; i < result.length; i++) {
     const p1 = result[i];
@@ -123,34 +136,42 @@ function insertBellyDip(
 }
 
 /**
- * Computes polygon area and centroid using Shoelace formula
+ * Inserts a fin-shaped bump into the fuselage's top-edge silhouette near the
+ * tail, at the point where the fuselage top meets its highest point after
+ * the tail boom taper. Locates the topmost point at or after the tail slot's
+ * X position generically, so it works across all profile styles.
  */
-export function computePolygonProperties(points: { x: number; y: number }[]): {
-  areaMm2: number;
-  centroidX: number;
-  centroidY: number;
-} {
-  let area = 0;
-  let cx = 0;
-  let cy = 0;
-  const n = points.length;
-
-  for (let i = 0; i < n; i++) {
-    const p1 = points[i];
-    const p2 = points[(i + 1) % n];
-    const cross = p1.x * p2.y - p2.x * p1.y;
-    area += cross;
-    cx += (p1.x + p2.x) * cross;
-    cy += (p1.y + p2.y) * cross;
+function insertIntegralFinBump(
+  points: Point2D[],
+  tailSlotX: number,
+  fin: GliderDesign['verticalStabilizer']
+): Point2D[] {
+  // Find the vertex closest to (but not past) the tail slot along the top edge
+  let insertAfterIdx = -1;
+  let bestDist = Infinity;
+  for (let i = 0; i < points.length; i++) {
+    const p = points[i];
+    if (p.y > 0.5 && Math.abs(p.x - tailSlotX) < bestDist) {
+      bestDist = Math.abs(p.x - tailSlotX);
+      insertAfterIdx = i;
+    }
   }
+  if (insertAfterIdx === -1) return points;
 
-  area = Math.abs(area) / 2;
-  if (area === 0) return { areaMm2: 0, centroidX: 0, centroidY: 0 };
+  const base = points[insertAfterIdx];
+  const sweepRad = (fin.sweepDeg * Math.PI) / 180;
+  const tipOffset = fin.heightMm * Math.tan(sweepRad);
 
-  cx = Math.abs(cx) / (6 * area);
-  cy = Math.abs(cy) / (6 * area);
+  const bumpPoints: Point2D[] = [
+    { x: base.x, y: base.y },
+    { x: base.x + tipOffset, y: base.y + fin.heightMm },
+    { x: base.x + tipOffset + fin.tipChordMm, y: base.y + fin.heightMm },
+    { x: base.x + fin.rootChordMm, y: base.y },
+  ];
 
-  return { areaMm2: area, centroidX: cx, centroidY: cy };
+  const result = [...points];
+  result.splice(insertAfterIdx, 1, ...bumpPoints);
+  return result;
 }
 
 /**
@@ -169,57 +190,72 @@ export function calculateGliderMassAndCG(glider: GliderDesign): {
   const densityGPerMm3 = balsaDensityKgM3 * 1e-6;
 
   // 1. Fuselage
-  const fusePoly = getFuselageProfilePoints(glider.fuselage);
-  const { areaMm2: fuseAreaMm2, centroidX: fuseCx, centroidY: fuseCy } = computePolygonProperties(fusePoly);
+  const fusePoly = getFuselageProfilePoints(glider);
+  const fuseAreaMm2 = polygonArea(fusePoly);
+  const { x: fuseCx, y: fuseCy } = polygonCentroid(fusePoly);
   const fuseVolumeMm3 = fuseAreaMm2 * glider.fuselage.thicknessMm;
   const fuselageGrams = fuseVolumeMm3 * densityGPerMm3;
 
-  // 2. Wing
-  // Trapezoidal planform: S = (c_root + c_tip) / 2 * span
+  // 2. Wing — canonical planform points (correct for the actual shape,
+  // including elliptical wings, instead of always assuming a trapezoid)
   const effectiveTipChordMm = getEffectiveTipChordMm(glider.wing);
-  const wingAreaMm2 = ((glider.wing.rootChordMm + effectiveTipChordMm) / 2) * glider.wing.spanMm;
+  const wingPlanformKind = getWingPlanformKind(glider.wing.planformType);
+  const wingPoints = calculateWingPlanformPoints(
+    wingPlanformKind,
+    glider.wing.rootChordMm,
+    effectiveTipChordMm,
+    glider.wing.spanMm,
+    glider.wing.sweepDeg
+  );
+  const wingAreaMm2 = polygonArea(wingPoints);
+  const wingLocalCentroid = polygonCentroid(wingPoints);
   const wingVolumeMm3 = wingAreaMm2 * glider.wing.thicknessMm;
   const wingGrams = wingVolumeMm3 * densityGPerMm3;
 
-  // Wing centroid along X:
-  // For trapezoid: centroid from root LE = (rootChord + 2 * tipChord) / (3 * (rootChord + tipChord)) * chordLine + sweep offset
-  const cr = glider.wing.rootChordMm;
-  const ct = effectiveTipChordMm;
-  const span = glider.wing.spanMm;
-  const sweepRad = (glider.wing.sweepDeg * Math.PI) / 180;
-  const sweepOffsetAtMidHalfSpan = (span / 4) * Math.tan(sweepRad);
-  const chordCentroidRelToLE = ((cr + 2 * ct) / (3 * (cr + ct))) * ((cr + ct) / 2);
-  const wingCx = glider.fuselage.wingSlot.xPositionMm + chordCentroidRelToLE + sweepOffsetAtMidHalfSpan * 0.5;
+  // Wing planform points are root-centered at local (0,0); translate the
+  // local centroid to the fuselage's wing slot location.
+  const wingCx = glider.fuselage.wingSlot.xPositionMm + wingLocalCentroid.x;
   const wingCy = glider.fuselage.wingSlot.yPositionMm;
 
-  // 3. Tail (Horizontal Stabilizer)
-  const tailCr = glider.horizontalStabilizer.rootChordMm;
-  const tailCt = glider.horizontalStabilizer.tipChordMm;
-  const tailSpan = glider.horizontalStabilizer.spanMm;
-  const tailAreaMm2 = ((tailCr + tailCt) / 2) * tailSpan;
+  // 3. Tail (Horizontal Stabilizer) — always a straight taper
+  const tailPoints = calculateTrapezoidPlanformPoints(
+    glider.horizontalStabilizer.rootChordMm,
+    glider.horizontalStabilizer.tipChordMm,
+    glider.horizontalStabilizer.spanMm,
+    glider.horizontalStabilizer.sweepDeg
+  );
+  const tailAreaMm2 = polygonArea(tailPoints);
+  const tailLocalCentroid = polygonCentroid(tailPoints);
   const tailVolumeMm3 = tailAreaMm2 * glider.horizontalStabilizer.thicknessMm;
   const tailGrams = tailVolumeMm3 * densityGPerMm3;
 
-  const tailSweepRad = (glider.horizontalStabilizer.sweepDeg * Math.PI) / 180;
-  const tailSweepOffset = (tailSpan / 4) * Math.tan(tailSweepRad);
-  const tailChordCentroid = ((tailCr + 2 * tailCt) / (3 * (tailCr + tailCt))) * ((tailCr + tailCt) / 2);
-  const tailCx = glider.fuselage.tailSlot.xPositionMm + tailChordCentroid + tailSweepOffset * 0.5;
+  const tailCx = glider.fuselage.tailSlot.xPositionMm + tailLocalCentroid.x;
   const tailCy = glider.fuselage.tailSlot.yPositionMm;
 
-  // 4. Fin (Vertical Stabilizer)
+  // 4. Fin (Vertical Stabilizer). When integral with the fuselage, its shape
+  // is folded into the fuselage's own silhouette (see insertIntegralFinBump
+  // in getFuselageProfilePoints above) and its mass/area is already counted
+  // in fuselageGrams above — attributing it again here would double-count it.
   let finGrams = 0;
   let finCx = tailCx;
   let finCy = tailCy + glider.verticalStabilizer.heightMm * 0.4;
 
   if (!glider.verticalStabilizer.isIntegralWithFuselage) {
-    const finCr = glider.verticalStabilizer.rootChordMm;
-    const finCt = glider.verticalStabilizer.tipChordMm;
-    const finH = glider.verticalStabilizer.heightMm;
-    const finAreaMm2 = ((finCr + finCt) / 2) * finH;
+    const finPoints = calculateTrapezoidPlanformPoints(
+      glider.verticalStabilizer.rootChordMm,
+      glider.verticalStabilizer.tipChordMm,
+      glider.verticalStabilizer.heightMm * 2, // trapezoid helper is span-symmetric; fin is one half
+      glider.verticalStabilizer.sweepDeg
+    );
+    // Fin is a one-sided (non-symmetric) surface — the y>=0 half of the
+    // symmetric helper's output is already the complete fin polygon
+    // (root chord at y=0, tip chord at y=heightMm), not half of it.
+    const finHalfPoints = finPoints.filter((p) => p.y >= 0);
+    const finAreaMm2 = polygonArea(finHalfPoints);
+    const finLocalCentroid = polygonCentroid(finHalfPoints);
     finGrams = finAreaMm2 * glider.verticalStabilizer.thicknessMm * densityGPerMm3;
-    const finSweepRad = (glider.verticalStabilizer.sweepDeg * Math.PI) / 180;
-    finCx = glider.fuselage.tailSlot.xPositionMm + ((finCr + 2 * finCt) / (3 * (finCr + finCt))) * ((finCr + finCt) / 2) + (finH / 2) * Math.tan(finSweepRad);
-    finCy = glider.fuselage.tailSlot.yPositionMm + finH * 0.4;
+    finCx = glider.fuselage.tailSlot.xPositionMm + finLocalCentroid.x;
+    finCy = glider.fuselage.tailSlot.yPositionMm + finLocalCentroid.y;
   }
 
   // 5. Unballasted Airframe totals

@@ -1,6 +1,7 @@
-import { GliderAeroReport, GliderDesign, StabilityStatus, getEffectiveTipChordMm } from '@/types/glider';
+import { GliderAeroReport, GliderDesign, StabilityStatus, getEffectiveTipChordMm, getWingPlanformKind } from '@/types/glider';
 import { calculateGliderMassAndCG } from './massBalance';
 import { calculateNeutralPoint, computeSurfaceAerodynamics } from './aerodynamics';
+import { polygonArea, calculateWingPlanformPoints } from '@/geometry/core';
 
 export function analyzeGliderStability(glider: GliderDesign): GliderAeroReport {
   // 1. Calculate Mass & CG
@@ -16,6 +17,25 @@ export function analyzeGliderStability(glider: GliderDesign): GliderAeroReport {
     glider.fuselage.wingSlot.xPositionMm,
     glider.fuselage.wingSlot.yPositionMm
   );
+
+  // computeSurfaceAerodynamics assumes a straight-tapered trapezoid, which
+  // understates a curved (elliptical) wing's actual area. Override area and
+  // aspect ratio with the canonical planform's true area — the same value
+  // calculateGliderMassAndCG uses to weigh this exact wing — so the reported
+  // wing area, wing loading, and stall/glide estimates can never silently
+  // disagree with what the wing was actually weighed as. MAC and AC position
+  // remain the documented trapezoid approximation (see core.ts).
+  const wingPlanformPoints = calculateWingPlanformPoints(
+    getWingPlanformKind(glider.wing.planformType),
+    glider.wing.rootChordMm,
+    getEffectiveTipChordMm(glider.wing),
+    glider.wing.spanMm,
+    glider.wing.sweepDeg
+  );
+  const trueWingAreaMm2 = polygonArea(wingPlanformPoints);
+  wingAero.areaMm2 = trueWingAreaMm2;
+  wingAero.areaDm2 = trueWingAreaMm2 / 10000;
+  wingAero.aspectRatio = trueWingAreaMm2 > 0 ? (glider.wing.spanMm * glider.wing.spanMm) / trueWingAreaMm2 : 0;
 
   // 3. Calculate Tail Aerodynamics
   const tailAero = computeSurfaceAerodynamics(
