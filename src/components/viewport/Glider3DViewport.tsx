@@ -135,6 +135,7 @@ export const Glider3DViewport: React.FC<Glider3DViewportProps> = ({ glider, aero
       roughness: 0.7,
       metalness: 0.05,
       color: 0xf5dfb8,
+      side: THREE.DoubleSide,
     });
     balsaMaterialRef.current = balsaMat;
 

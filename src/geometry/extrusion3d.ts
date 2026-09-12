@@ -164,6 +164,277 @@ export function createFuselageMesh(glider: GliderDesign, balsaMaterial: THREE.Ma
 }
 
 /**
+ * Computes aerodynamic mean camber line elevation for a normalized chord fraction s in [0, 1].
+ * Uses NACA-style camber line with maximum camber at 40% chord (p = 0.4).
+ * Returns height in mm.
+ */
+export function getCamberElevation(s: number, chord: number, camberPercent: number): number {
+  if (camberPercent <= 0 || chord <= 0) return 0;
+  const clampedS = Math.max(0, Math.min(1, s));
+  const h = chord * (camberPercent / 100);
+  const p = 0.4;
+  if (clampedS <= p) {
+    return (h / (p * p)) * (2 * p * clampedS - clampedS * clampedS);
+  } else {
+    return (h / ((1 - p) * (1 - p))) * ((1 - 2 * p) + 2 * p * clampedS - clampedS * clampedS);
+  }
+}
+
+/**
+ * Creates a 3D half-wing panel geometry with chordwise camber curvature and edge skirts.
+ * When camberPercent is 0, this is an exact flat balsa sheet.
+ * When camberPercent > 0, it arches smoothly along the chord line.
+ */
+export function createHalfWingGeometry(glider: GliderDesign): THREE.BufferGeometry {
+  const { wing } = glider;
+  const cr = wing.rootChordMm;
+  const ct = getEffectiveTipChordMm(wing);
+  const halfSpan = wing.spanMm / 2;
+  const sweepRad = (wing.sweepDeg * Math.PI) / 180;
+  const planformKind = getWingPlanformKind(wing.planformType);
+  const thickness = wing.thicknessMm;
+  const camberPercent = wing.camberPercent;
+
+  const N = 24; // Chordwise segments
+  const M = 24; // Spanwise segments
+
+  const positions: number[] = [];
+  const uvs: number[] = [];
+  const indices: number[] = [];
+
+  function addVertex(x: number, y: number, z: number, u: number, v: number): number {
+    const idx = positions.length / 3;
+    positions.push(x, y, z);
+    uvs.push(u, v);
+    return idx;
+  }
+
+  function addQuad(a: number, b: number, c: number, d: number) {
+    indices.push(a, b, c);
+    indices.push(a, c, d);
+  }
+
+  // Get leading edge X and chord at span fraction t in [0, 1]
+  function getStationGeometry(t: number): { xLE: number; chord: number } {
+    if (planformKind === 'elliptical') {
+      const ellipseFactor = Math.sqrt(Math.max(0, 1 - t * t));
+      const chord = Math.max(ct * 0.4, cr * ellipseFactor);
+      const sweepAtT = t * halfSpan * Math.tan(sweepRad);
+      const xLE = sweepAtT + 0.25 * (cr - chord);
+      return { xLE, chord };
+    }
+    const sweepAtT = t * halfSpan * Math.tan(sweepRad);
+    const chord = cr + t * (ct - cr);
+    return { xLE: sweepAtT, chord };
+  }
+
+  // Build Upper and Lower grids
+  const upperGrid: number[][] = [];
+  const lowerGrid: number[][] = [];
+
+  for (let j = 0; j <= M; j++) {
+    const t = j / M;
+    const z = -t * halfSpan; // Along negative Z so dihedral rotates up
+    const { xLE, chord } = getStationGeometry(t);
+    const upperRow: number[] = [];
+    const lowerRow: number[] = [];
+
+    for (let i = 0; i <= N; i++) {
+      const s = i / N;
+      const x = xLE + s * chord;
+      const camb = getCamberElevation(s, chord, camberPercent);
+      const yUpper = camb + thickness / 2;
+      const yLower = camb - thickness / 2;
+      const u = x / 100;
+      const v = (t * halfSpan) / 100;
+
+      upperRow.push(addVertex(x, yUpper, z, u, v));
+      lowerRow.push(addVertex(x, yLower, z, u, v));
+    }
+    upperGrid.push(upperRow);
+    lowerGrid.push(lowerRow);
+  }
+
+  // Upper Surface Quads (Normal pointing OUT / +Y)
+  for (let j = 0; j < M; j++) {
+    for (let i = 0; i < N; i++) {
+      const a = upperGrid[j][i];
+      const b = upperGrid[j][i + 1];
+      const c = upperGrid[j + 1][i + 1];
+      const d = upperGrid[j + 1][i];
+      addQuad(a, b, c, d);
+    }
+  }
+
+  // Lower Surface Quads (Normal pointing OUT / -Y)
+  for (let j = 0; j < M; j++) {
+    for (let i = 0; i < N; i++) {
+      const a = lowerGrid[j][i];
+      const b = lowerGrid[j][i + 1];
+      const c = lowerGrid[j + 1][i + 1];
+      const d = lowerGrid[j + 1][i];
+      addQuad(a, d, c, b);
+    }
+  }
+
+  // Leading Edge Skirt (connecting s = 0 from root to tip, normal pointing forward / -X)
+  const leUpper: number[] = [];
+  const leLower: number[] = [];
+  for (let j = 0; j <= M; j++) {
+    const t = j / M;
+    const z = -t * halfSpan;
+    const { xLE } = getStationGeometry(t);
+    const v = (t * halfSpan) / 100;
+    leUpper.push(addVertex(xLE, thickness / 2, z, 0, v));
+    leLower.push(addVertex(xLE, -thickness / 2, z, 0.05, v));
+  }
+  for (let j = 0; j < M; j++) {
+    const a = leUpper[j];
+    const b = leUpper[j + 1];
+    const c = leLower[j + 1];
+    const d = leLower[j];
+    addQuad(d, a, b, c);
+  }
+
+  // Trailing Edge Skirt (connecting s = 1 from root to tip, normal pointing aft / +X)
+  const teUpper: number[] = [];
+  const teLower: number[] = [];
+  for (let j = 0; j <= M; j++) {
+    const t = j / M;
+    const z = -t * halfSpan;
+    const { xLE, chord } = getStationGeometry(t);
+    const xTE = xLE + chord;
+    const v = (t * halfSpan) / 100;
+    teUpper.push(addVertex(xTE, thickness / 2, z, 0, v));
+    teLower.push(addVertex(xTE, -thickness / 2, z, 0.05, v));
+  }
+  for (let j = 0; j < M; j++) {
+    const a = teUpper[j];
+    const b = teUpper[j + 1];
+    const c = teLower[j + 1];
+    const d = teLower[j];
+    addQuad(a, d, c, b);
+  }
+
+  // Root Rib Skirt (t = 0, z = 0, normal pointing toward center / +Z)
+  const rootUpper: number[] = [];
+  const rootLower: number[] = [];
+  const { chord: rootChord } = getStationGeometry(0);
+  for (let i = 0; i <= N; i++) {
+    const s = i / N;
+    const x = s * rootChord;
+    const camb = getCamberElevation(s, rootChord, camberPercent);
+    rootUpper.push(addVertex(x, camb + thickness / 2, 0, x / 100, 0));
+    rootLower.push(addVertex(x, camb - thickness / 2, 0, x / 100, 0.05));
+  }
+  for (let i = 0; i < N; i++) {
+    const a = rootUpper[i];
+    const b = rootUpper[i + 1];
+    const c = rootLower[i + 1];
+    const d = rootLower[i];
+    addQuad(d, c, b, a);
+  }
+
+  // Tip Rib Skirt (t = 1, z = -halfSpan, normal pointing outward / -Z)
+  const tipUpper: number[] = [];
+  const tipLower: number[] = [];
+  const { xLE: tipLE, chord: tipChord } = getStationGeometry(1);
+  for (let i = 0; i <= N; i++) {
+    const s = i / N;
+    const x = tipLE + s * tipChord;
+    const camb = getCamberElevation(s, tipChord, camberPercent);
+    tipUpper.push(addVertex(x, camb + thickness / 2, -halfSpan, x / 100, 0));
+    tipLower.push(addVertex(x, camb - thickness / 2, -halfSpan, x / 100, 0.05));
+  }
+  for (let i = 0; i < N; i++) {
+    const a = tipUpper[i];
+    const b = tipUpper[i + 1];
+    const c = tipLower[i + 1];
+    const d = tipLower[i];
+    addQuad(a, b, c, d);
+  }
+
+  const geom = new THREE.BufferGeometry();
+  geom.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geom.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+  geom.setIndex(indices);
+  geom.computeVertexNormals();
+
+  return geom;
+}
+
+/**
+ * Generates the center tab mesh passing through the fuselage wing slot.
+ * Follows the camber curve at the root chord so it connects seamlessly to the wings.
+ */
+export function createCenterTabGeometry(glider: GliderDesign): THREE.BufferGeometry {
+  const { wing, fuselage } = glider;
+  const cr = wing.rootChordMm;
+  const tabWidth = wing.slotTabWidthMm || cr * 0.9;
+  const tabOffset = (cr - tabWidth) / 2;
+  const halfSlotSpan = Math.max(fuselage.thicknessMm / 2 + 1, 3);
+  const thickness = wing.thicknessMm;
+  const camberPercent = wing.camberPercent;
+
+  const N = 16;
+  const positions: number[] = [];
+  const uvs: number[] = [];
+  const indices: number[] = [];
+
+  function addVertex(x: number, y: number, z: number, u: number, v: number): number {
+    const idx = positions.length / 3;
+    positions.push(x, y, z);
+    uvs.push(u, v);
+    return idx;
+  }
+
+  function addQuad(a: number, b: number, c: number, d: number) {
+    indices.push(a, b, c);
+    indices.push(a, c, d);
+  }
+
+  const upperZneg: number[] = [];
+  const upperZpos: number[] = [];
+  const lowerZneg: number[] = [];
+  const lowerZpos: number[] = [];
+
+  for (let i = 0; i <= N; i++) {
+    const s = (tabOffset + (i / N) * tabWidth) / cr;
+    const x = tabOffset + (i / N) * tabWidth;
+    const camb = getCamberElevation(s, cr, camberPercent);
+    const yUpper = camb + thickness / 2;
+    const yLower = camb - thickness / 2;
+
+    upperZneg.push(addVertex(x, yUpper, -halfSlotSpan, x / 100, 0));
+    upperZpos.push(addVertex(x, yUpper, halfSlotSpan, x / 100, 0.05));
+    lowerZneg.push(addVertex(x, yLower, -halfSlotSpan, x / 100, 0));
+    lowerZpos.push(addVertex(x, yLower, halfSlotSpan, x / 100, 0.05));
+  }
+
+  // Top and bottom faces
+  for (let i = 0; i < N; i++) {
+    // Upper face (normal +Y)
+    addQuad(upperZpos[i], upperZpos[i + 1], upperZneg[i + 1], upperZneg[i]);
+    // Lower face (normal -Y)
+    addQuad(lowerZneg[i], lowerZneg[i + 1], lowerZpos[i + 1], lowerZpos[i]);
+  }
+
+  // Front (LE) and back (TE) end caps
+  // Front cap at i = 0
+  addQuad(lowerZneg[0], upperZneg[0], upperZpos[0], lowerZpos[0]);
+  // Back cap at i = N
+  addQuad(lowerZpos[N], upperZpos[N], upperZneg[N], lowerZneg[N]);
+
+  const geom = new THREE.BufferGeometry();
+  geom.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geom.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+  geom.setIndex(indices);
+  geom.computeVertexNormals();
+
+  return geom;
+}
+
+/**
  * Generates Three.js meshes for the Main Wing (Left and Right panels with dihedral angle)
  */
 export function createWingMesh(glider: GliderDesign, balsaMaterial: THREE.Material): THREE.Group {
@@ -171,39 +442,9 @@ export function createWingMesh(glider: GliderDesign, balsaMaterial: THREE.Materi
   wingGroup.name = 'wing_assembly';
 
   const { wing, fuselage } = glider;
-  const cr = wing.rootChordMm;
-  const ct = getEffectiveTipChordMm(wing);
 
-  // Wing Panel 2D Shape in X-Z plane — sourced from the canonical planform
-  // engine (src/geometry/core.ts) so the 3D shape can never drift from what
-  // the 2D pattern exporter and the physics engine compute for the same wing.
-  function createHalfWingGeometry(): THREE.BufferGeometry {
-    const fullPlanform = calculateWingPlanformPoints(getWingPlanformKind(wing.planformType), cr, ct, wing.spanMm, wing.sweepDeg);
-    const halfPlanform = fullPlanform.filter((p) => p.y >= -0.001);
-
-    const shape = new THREE.Shape();
-    shape.moveTo(halfPlanform[0].x, halfPlanform[0].y);
-    for (let i = 1; i < halfPlanform.length; i++) {
-      shape.lineTo(halfPlanform[i].x, halfPlanform[i].y);
-    }
-    shape.closePath();
-
-    const extrudeSettings: THREE.ExtrudeGeometryOptions = {
-      depth: wing.thicknessMm,
-      bevelEnabled: true,
-      bevelSegments: 1,
-      steps: 1,
-      bevelSize: 0.2,
-      bevelThickness: 0.2,
-    };
-
-    const geom = new THREE.ExtrudeGeometry(shape, extrudeSettings);
-    geom.rotateX(-Math.PI / 2);
-    return geom;
-  }
-
-  const leftGeom = createHalfWingGeometry();
-  const rightGeom = createHalfWingGeometry();
+  const leftGeom = createHalfWingGeometry(glider);
+  const rightGeom = createHalfWingGeometry(glider);
 
   // Create Left and Right meshes
   const leftWingMesh = new THREE.Mesh(leftGeom, balsaMaterial);
@@ -223,22 +464,10 @@ export function createWingMesh(glider: GliderDesign, balsaMaterial: THREE.Materi
   rightWingMesh.rotation.x = -dihedralRad;
 
   // Center Tab mesh that slides directly through the fuselage slot
-  const tabShape = new THREE.Shape();
-  const tabWidth = wing.slotTabWidthMm || cr * 0.9;
-  const tabOffset = (cr - tabWidth) / 2;
-  tabShape.moveTo(tabOffset, -fuselage.thicknessMm);
-  tabShape.lineTo(tabOffset + tabWidth, -fuselage.thicknessMm);
-  tabShape.lineTo(tabOffset + tabWidth, fuselage.thicknessMm);
-  tabShape.lineTo(tabOffset, fuselage.thicknessMm);
-  tabShape.closePath();
-
-  const tabGeom = new THREE.ExtrudeGeometry(tabShape, {
-    depth: wing.thicknessMm,
-    bevelEnabled: false,
-  });
-  tabGeom.rotateX(-Math.PI / 2);
+  const tabGeom = createCenterTabGeometry(glider);
   const tabMesh = new THREE.Mesh(tabGeom, balsaMaterial);
-  tabMesh.position.y = -wing.thicknessMm / 2;
+  tabMesh.castShadow = true;
+  tabMesh.receiveShadow = true;
 
   wingGroup.add(leftWingMesh);
   wingGroup.add(rightWingMesh);

@@ -147,3 +147,36 @@ describe('isPointInPolygon', () => {
     expect(isPointInPolygon({ x: 5, y: -5 }, square)).toBe(false);
   });
 });
+
+describe('getCamberElevation', () => {
+  it('returns zero for 0% camber (flat sheet)', async () => {
+    const { getCamberElevation } = await import('./extrusion3d');
+    expect(getCamberElevation(0, 60, 0)).toBe(0);
+    expect(getCamberElevation(0.4, 60, 0)).toBe(0);
+    expect(getCamberElevation(1, 60, 0)).toBe(0);
+  });
+
+  it('peaks at 40% chord with exact max camber height', async () => {
+    const { getCamberElevation } = await import('./extrusion3d');
+    const chord = 100;
+    const camberPercent = 5; // 5% of 100mm = 5mm
+    expect(getCamberElevation(0, chord, camberPercent)).toBeCloseTo(0);
+    expect(getCamberElevation(0.4, chord, camberPercent)).toBeCloseTo(5.0);
+    expect(getCamberElevation(1, chord, camberPercent)).toBeCloseTo(0);
+  });
+
+  it('produces smooth positive camber arch along chord', async () => {
+    const { getCamberElevation } = await import('./extrusion3d');
+    const chord = 80;
+    const camberPercent = 4;
+    const y20 = getCamberElevation(0.2, chord, camberPercent);
+    const y40 = getCamberElevation(0.4, chord, camberPercent);
+    const y70 = getCamberElevation(0.7, chord, camberPercent);
+
+    expect(y20).toBeGreaterThan(0);
+    expect(y40).toBeGreaterThan(y20);
+    expect(y40).toBeGreaterThan(y70);
+    expect(y70).toBeGreaterThan(0);
+  });
+});
+
