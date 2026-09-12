@@ -7,6 +7,7 @@ import {
   calculateTrapezoidPlanformPoints,
   calculateEllipticalPlanformPoints,
   calculateWingPlanformPoints,
+  getWingStationAt,
   isPointInPolygon,
 } from './core';
 
@@ -177,6 +178,73 @@ describe('getCamberElevation', () => {
     expect(y40).toBeGreaterThan(y20);
     expect(y40).toBeGreaterThan(y70);
     expect(y70).toBeGreaterThan(0);
+  });
+});
+
+describe('getWingStationAt', () => {
+  it('matches calculateTrapezoidPlanformPoints at the root and tip for a straight taper', () => {
+    const [rootLE, leftTipLE, , rootTE] = calculateTrapezoidPlanformPoints(80, 40, 300, 10);
+    const root = getWingStationAt('straight', 80, 40, 300, 10, 0);
+    const tip = getWingStationAt('straight', 80, 40, 300, 10, 1);
+
+    expect(root.xLE).toBeCloseTo(rootLE.x);
+    expect(root.chord).toBeCloseTo(rootTE.x - rootLE.x);
+    expect(tip.xLE).toBeCloseTo(leftTipLE.x);
+    expect(tip.chord).toBeCloseTo(40);
+  });
+
+  it('interpolates chord linearly between root and tip for a straight taper', () => {
+    const mid = getWingStationAt('straight', 80, 40, 300, 0, 0.5);
+    expect(mid.chord).toBeCloseTo(60); // halfway between 80 and 40
+  });
+
+  it('matches the leading-edge and chord the elliptical polygon builder uses at each sampled station', () => {
+    // calculateEllipticalPlanformPoints now sources every station from
+    // getWingStationAt — this pins that invariant so a future edit can't
+    // silently let the two drift apart again (see extrusion3d.ts's
+    // getStationGeometry, which also calls getWingStationAt directly).
+    const segments = 16;
+    const points = calculateEllipticalPlanformPoints(90, 30, 280, 5, segments);
+    for (let i = 0; i <= segments; i++) {
+      const t = i / segments;
+      const station = getWingStationAt('elliptical', 90, 30, 280, 5, t);
+      // The leading-edge points are the first `segments + 1` entries.
+      expect(points[i].x).toBeCloseTo(station.xLE);
+    }
+  });
+});
+
+describe('3D wing mesh camber (extrusion3d.ts, via the canonical station lookup)', () => {
+  it('produces a flat sheet (Y range == thickness) at 0% camber', async () => {
+    const { createHalfWingGeometry } = await import('./extrusion3d');
+    const { GLIDER_PRESETS } = await import('@/constants/presets');
+    const flat = { ...GLIDER_PRESETS.TRAINER, wing: { ...GLIDER_PRESETS.TRAINER.wing, camberPercent: 0 } };
+    const geom = createHalfWingGeometry(flat);
+    geom.computeBoundingBox();
+    const bbox = geom.boundingBox!;
+    expect(bbox.max.y - bbox.min.y).toBeCloseTo(flat.wing.thicknessMm, 1);
+  });
+
+  it('arches upward (Y range grows beyond thickness) once camber is applied', async () => {
+    const { createHalfWingGeometry } = await import('./extrusion3d');
+    const { GLIDER_PRESETS } = await import('@/constants/presets');
+    const cambered = { ...GLIDER_PRESETS.TRAINER, wing: { ...GLIDER_PRESETS.TRAINER.wing, camberPercent: 6 } };
+    const geom = createHalfWingGeometry(cambered);
+    geom.computeBoundingBox();
+    const bbox = geom.boundingBox!;
+    expect(bbox.max.y - bbox.min.y).toBeGreaterThan(cambered.wing.thicknessMm + 1);
+  });
+
+  it('produces valid, finite geometry for every planform kind', async () => {
+    const { createHalfWingGeometry } = await import('./extrusion3d');
+    const { GLIDER_PRESETS } = await import('@/constants/presets');
+    for (const preset of Object.values(GLIDER_PRESETS)) {
+      const geom = createHalfWingGeometry(preset);
+      const positions = geom.getAttribute('position').array;
+      for (let i = 0; i < positions.length; i++) {
+        expect(Number.isFinite(positions[i])).toBe(true);
+      }
+    }
   });
 });
 

@@ -1,0 +1,202 @@
+diff --git a/src/geometry/core.test.ts b/src/geometry/core.test.ts
+index 4bfeec8..a1a9d7a 100644
+--- a/src/geometry/core.test.ts
++++ b/src/geometry/core.test.ts
+@@ -7,6 +7,7 @@ import {
+   calculateTrapezoidPlanformPoints,
+   calculateEllipticalPlanformPoints,
+   calculateWingPlanformPoints,
++  getWingStationAt,
+   isPointInPolygon,
+ } from './core';
+ 
+@@ -180,3 +181,70 @@ describe('getCamberElevation', () => {
+   });
+ });
+ 
++describe('getWingStationAt', () => {
++  it('matches calculateTrapezoidPlanformPoints at the root and tip for a straight taper', () => {
++    const [rootLE, leftTipLE, , rootTE] = calculateTrapezoidPlanformPoints(80, 40, 300, 10);
++    const root = getWingStationAt('straight', 80, 40, 300, 10, 0);
++    const tip = getWingStationAt('straight', 80, 40, 300, 10, 1);
++
++    expect(root.xLE).toBeCloseTo(rootLE.x);
++    expect(root.chord).toBeCloseTo(rootTE.x - rootLE.x);
++    expect(tip.xLE).toBeCloseTo(leftTipLE.x);
++    expect(tip.chord).toBeCloseTo(40);
++  });
++
++  it('interpolates chord linearly between root and tip for a straight taper', () => {
++    const mid = getWingStationAt('straight', 80, 40, 300, 0, 0.5);
++    expect(mid.chord).toBeCloseTo(60); // halfway between 80 and 40
++  });
++
++  it('matches the leading-edge and chord the elliptical polygon builder uses at each sampled station', () => {
++    // calculateEllipticalPlanformPoints now sources every station from
++    // getWingStationAt — this pins that invariant so a future edit can't
++    // silently let the two drift apart again (see extrusion3d.ts's
++    // getStationGeometry, which also calls getWingStationAt directly).
++    const segments = 16;
++    const points = calculateEllipticalPlanformPoints(90, 30, 280, 5, segments);
++    for (let i = 0; i <= segments; i++) {
++      const t = i / segments;
++      const station = getWingStationAt('elliptical', 90, 30, 280, 5, t);
++      // The leading-edge points are the first `segments + 1` entries.
++      expect(points[i].x).toBeCloseTo(station.xLE);
++    }
++  });
++});
++
++describe('3D wing mesh camber (extrusion3d.ts, via the canonical station lookup)', () => {
++  it('produces a flat sheet (Y range == thickness) at 0% camber', async () => {
++    const { createHalfWingGeometry } = await import('./extrusion3d');
++    const { GLIDER_PRESETS } = await import('@/constants/presets');
++    const flat = { ...GLIDER_PRESETS.TRAINER, wing: { ...GLIDER_PRESETS.TRAINER.wing, camberPercent: 0 } };
++    const geom = createHalfWingGeometry(flat);
++    geom.computeBoundingBox();
++    const bbox = geom.boundingBox!;
++    expect(bbox.max.y - bbox.min.y).toBeCloseTo(flat.wing.thicknessMm, 1);
++  });
++
++  it('arches upward (Y range grows beyond thickness) once camber is applied', async () => {
++    const { createHalfWingGeometry } = await import('./extrusion3d');
++    const { GLIDER_PRESETS } = await import('@/constants/presets');
++    const cambered = { ...GLIDER_PRESETS.TRAINER, wing: { ...GLIDER_PRESETS.TRAINER.wing, camberPercent: 6 } };
++    const geom = createHalfWingGeometry(cambered);
++    geom.computeBoundingBox();
++    const bbox = geom.boundingBox!;
++    expect(bbox.max.y - bbox.min.y).toBeGreaterThan(cambered.wing.thicknessMm + 1);
++  });
++
++  it('produces valid, finite geometry for every planform kind', async () => {
++    const { createHalfWingGeometry } = await import('./extrusion3d');
++    const { GLIDER_PRESETS } = await import('@/constants/presets');
++    for (const preset of Object.values(GLIDER_PRESETS)) {
++      const geom = createHalfWingGeometry(preset);
++      const positions = geom.getAttribute('position').array;
++      for (let i = 0; i < positions.length; i++) {
++        expect(Number.isFinite(positions[i])).toBe(true);
++      }
++    }
++  });
++});
++
+diff --git a/src/geometry/core.ts b/src/geometry/core.ts
+index f08c1ea..13e9320 100644
+--- a/src/geometry/core.ts
++++ b/src/geometry/core.ts
+@@ -152,6 +152,46 @@ export function calculateTrapezoidPlanformPoints(
+   ];
+ }
+ 
++/**
++ * Chord and leading-edge X position at a continuous spanwise station
++ * (t = 0 at root, 1 at tip) for a wing/tail/fin surface. This is the
++ * single place that formula lives — anything that needs to sample a
++ * planform at an arbitrary span fraction (e.g. a subdivided 3D mesh)
++ * should call this rather than re-deriving it, for the same reason
++ * `calculateWingPlanformPoints` exists for the discrete polygon outline:
++ * see docs/ARCHITECTURE_REVIEW.md.
++ *
++ * For a straight taper this is exact (chord and sweep both vary linearly
++ * between root and tip, matching `calculateTrapezoidPlanformPoints`'s
++ * straight edges). For an elliptical planform it uses the same sampling
++ * formula as `calculateEllipticalPlanformPoints`, which that function now
++ * calls this to compute, so the two can never drift apart.
++ */
++export function getWingStationAt(
++  kind: WingPlanformKind,
++  rootChordMm: number,
++  effectiveTipChordMm: number,
++  spanMm: number,
++  sweepDeg: number,
++  t: number
++): { xLE: number; chord: number } {
++  const halfSpan = spanMm / 2;
++  const sweepRad = (sweepDeg * Math.PI) / 180;
++  const clampedT = Math.max(0, Math.min(1, t));
++
++  if (kind === 'elliptical') {
++    const ellipseFactor = Math.sqrt(Math.max(0, 1 - clampedT * clampedT));
++    const chord = Math.max(effectiveTipChordMm * 0.4, rootChordMm * ellipseFactor);
++    const sweepAtT = clampedT * halfSpan * Math.tan(sweepRad);
++    const xLE = sweepAtT + 0.25 * (rootChordMm - chord);
++    return { xLE, chord };
++  }
++
++  const sweepAtT = clampedT * halfSpan * Math.tan(sweepRad);
++  const chord = rootChordMm + clampedT * (effectiveTipChordMm - rootChordMm);
++  return { xLE: sweepAtT, chord };
++}
++
+ /**
+  * Full symmetric planform outline for an elliptical wing, sampled as a
+  * closed polygon. `tipChordMm` sets a minimum chord floor at the very tip
+@@ -166,20 +206,15 @@ export function calculateEllipticalPlanformPoints(
+   segments: number = 16
+ ): Point2D[] {
+   const halfSpan = spanMm / 2;
+-  const sweepRad = (sweepDeg * Math.PI) / 180;
+ 
+   const lePoints: Point2D[] = [];
+   const tePoints: Point2D[] = [];
+ 
+   for (let i = 0; i <= segments; i++) {
+     const t = i / segments; // 0 at root, 1 at tip
+-    const ellipseFactor = Math.sqrt(Math.max(0, 1 - t * t));
+-    const chordAtT = Math.max(tipChordMm * 0.4, rootChordMm * ellipseFactor);
+-    const sweepAtT = t * halfSpan * Math.tan(sweepRad);
+-    const leX = sweepAtT + 0.25 * (rootChordMm - chordAtT);
+-    const teX = leX + chordAtT;
+-    lePoints.push({ x: leX, y: t * halfSpan });
+-    tePoints.push({ x: teX, y: t * halfSpan });
++    const { xLE, chord } = getWingStationAt('elliptical', rootChordMm, tipChordMm, spanMm, sweepDeg, t);
++    lePoints.push({ x: xLE, y: t * halfSpan });
++    tePoints.push({ x: xLE + chord, y: t * halfSpan });
+   }
+ 
+   return [
+diff --git a/src/geometry/extrusion3d.ts b/src/geometry/extrusion3d.ts
+index c668a97..ddfa7d9 100644
+--- a/src/geometry/extrusion3d.ts
++++ b/src/geometry/extrusion3d.ts
+@@ -1,7 +1,7 @@
+ import * as THREE from 'three';
+ import { GliderDesign, getEffectiveTipChordMm, getWingPlanformKind } from '@/types/glider';
+ import { getFuselageProfilePoints } from '@/physics/massBalance';
+-import { calculateWingPlanformPoints } from '@/geometry/core';
++import { getWingStationAt } from '@/geometry/core';
+ 
+ /**
+  * Creates procedural balsa wood grain texture using HTML Canvas
+@@ -190,7 +190,6 @@ export function createHalfWingGeometry(glider: GliderDesign): THREE.BufferGeomet
+   const cr = wing.rootChordMm;
+   const ct = getEffectiveTipChordMm(wing);
+   const halfSpan = wing.spanMm / 2;
+-  const sweepRad = (wing.sweepDeg * Math.PI) / 180;
+   const planformKind = getWingPlanformKind(wing.planformType);
+   const thickness = wing.thicknessMm;
+   const camberPercent = wing.camberPercent;
+@@ -214,18 +213,11 @@ export function createHalfWingGeometry(glider: GliderDesign): THREE.BufferGeomet
+     indices.push(a, c, d);
+   }
+ 
+-  // Get leading edge X and chord at span fraction t in [0, 1]
++  // Leading edge X and chord at span fraction t in [0, 1] — sourced from the
++  // canonical geometry engine so this mesh can never silently diverge from
++  // the 2D pattern export or physics area calculations.
+   function getStationGeometry(t: number): { xLE: number; chord: number } {
+-    if (planformKind === 'elliptical') {
+-      const ellipseFactor = Math.sqrt(Math.max(0, 1 - t * t));
+-      const chord = Math.max(ct * 0.4, cr * ellipseFactor);
+-      const sweepAtT = t * halfSpan * Math.tan(sweepRad);
+-      const xLE = sweepAtT + 0.25 * (cr - chord);
+-      return { xLE, chord };
+-    }
+-    const sweepAtT = t * halfSpan * Math.tan(sweepRad);
+-    const chord = cr + t * (ct - cr);
+-    return { xLE: sweepAtT, chord };
++    return getWingStationAt(planformKind, cr, ct, wing.spanMm, wing.sweepDeg, t);
+   }
+ 
+   // Build Upper and Lower grids

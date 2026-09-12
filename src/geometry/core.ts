@@ -153,6 +153,46 @@ export function calculateTrapezoidPlanformPoints(
 }
 
 /**
+ * Chord and leading-edge X position at a continuous spanwise station
+ * (t = 0 at root, 1 at tip) for a wing/tail/fin surface. This is the
+ * single place that formula lives — anything that needs to sample a
+ * planform at an arbitrary span fraction (e.g. a subdivided 3D mesh)
+ * should call this rather than re-deriving it, for the same reason
+ * `calculateWingPlanformPoints` exists for the discrete polygon outline:
+ * see docs/ARCHITECTURE_REVIEW.md.
+ *
+ * For a straight taper this is exact (chord and sweep both vary linearly
+ * between root and tip, matching `calculateTrapezoidPlanformPoints`'s
+ * straight edges). For an elliptical planform it uses the same sampling
+ * formula as `calculateEllipticalPlanformPoints`, which that function now
+ * calls this to compute, so the two can never drift apart.
+ */
+export function getWingStationAt(
+  kind: WingPlanformKind,
+  rootChordMm: number,
+  effectiveTipChordMm: number,
+  spanMm: number,
+  sweepDeg: number,
+  t: number
+): { xLE: number; chord: number } {
+  const halfSpan = spanMm / 2;
+  const sweepRad = (sweepDeg * Math.PI) / 180;
+  const clampedT = Math.max(0, Math.min(1, t));
+
+  if (kind === 'elliptical') {
+    const ellipseFactor = Math.sqrt(Math.max(0, 1 - clampedT * clampedT));
+    const chord = Math.max(effectiveTipChordMm * 0.4, rootChordMm * ellipseFactor);
+    const sweepAtT = clampedT * halfSpan * Math.tan(sweepRad);
+    const xLE = sweepAtT + 0.25 * (rootChordMm - chord);
+    return { xLE, chord };
+  }
+
+  const sweepAtT = clampedT * halfSpan * Math.tan(sweepRad);
+  const chord = rootChordMm + clampedT * (effectiveTipChordMm - rootChordMm);
+  return { xLE: sweepAtT, chord };
+}
+
+/**
  * Full symmetric planform outline for an elliptical wing, sampled as a
  * closed polygon. `tipChordMm` sets a minimum chord floor at the very tip
  * (a true ellipse tapers to zero, which isn't manufacturable/renderable as
@@ -166,20 +206,15 @@ export function calculateEllipticalPlanformPoints(
   segments: number = 16
 ): Point2D[] {
   const halfSpan = spanMm / 2;
-  const sweepRad = (sweepDeg * Math.PI) / 180;
 
   const lePoints: Point2D[] = [];
   const tePoints: Point2D[] = [];
 
   for (let i = 0; i <= segments; i++) {
     const t = i / segments; // 0 at root, 1 at tip
-    const ellipseFactor = Math.sqrt(Math.max(0, 1 - t * t));
-    const chordAtT = Math.max(tipChordMm * 0.4, rootChordMm * ellipseFactor);
-    const sweepAtT = t * halfSpan * Math.tan(sweepRad);
-    const leX = sweepAtT + 0.25 * (rootChordMm - chordAtT);
-    const teX = leX + chordAtT;
-    lePoints.push({ x: leX, y: t * halfSpan });
-    tePoints.push({ x: teX, y: t * halfSpan });
+    const { xLE, chord } = getWingStationAt('elliptical', rootChordMm, tipChordMm, spanMm, sweepDeg, t);
+    lePoints.push({ x: xLE, y: t * halfSpan });
+    tePoints.push({ x: xLE + chord, y: t * halfSpan });
   }
 
   return [

@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { GliderDesign, getEffectiveTipChordMm, getWingPlanformKind } from '@/types/glider';
 import { getFuselageProfilePoints } from '@/physics/massBalance';
-import { calculateWingPlanformPoints } from '@/geometry/core';
+import { getWingStationAt } from '@/geometry/core';
 
 /**
  * Creates procedural balsa wood grain texture using HTML Canvas
@@ -190,7 +190,6 @@ export function createHalfWingGeometry(glider: GliderDesign): THREE.BufferGeomet
   const cr = wing.rootChordMm;
   const ct = getEffectiveTipChordMm(wing);
   const halfSpan = wing.spanMm / 2;
-  const sweepRad = (wing.sweepDeg * Math.PI) / 180;
   const planformKind = getWingPlanformKind(wing.planformType);
   const thickness = wing.thicknessMm;
   const camberPercent = wing.camberPercent;
@@ -214,18 +213,11 @@ export function createHalfWingGeometry(glider: GliderDesign): THREE.BufferGeomet
     indices.push(a, c, d);
   }
 
-  // Get leading edge X and chord at span fraction t in [0, 1]
+  // Leading edge X and chord at span fraction t in [0, 1] — sourced from the
+  // canonical geometry engine so this mesh can never silently diverge from
+  // the 2D pattern export or physics area calculations.
   function getStationGeometry(t: number): { xLE: number; chord: number } {
-    if (planformKind === 'elliptical') {
-      const ellipseFactor = Math.sqrt(Math.max(0, 1 - t * t));
-      const chord = Math.max(ct * 0.4, cr * ellipseFactor);
-      const sweepAtT = t * halfSpan * Math.tan(sweepRad);
-      const xLE = sweepAtT + 0.25 * (cr - chord);
-      return { xLE, chord };
-    }
-    const sweepAtT = t * halfSpan * Math.tan(sweepRad);
-    const chord = cr + t * (ct - cr);
-    return { xLE: sweepAtT, chord };
+    return getWingStationAt(planformKind, cr, ct, wing.spanMm, wing.sweepDeg, t);
   }
 
   // Build Upper and Lower grids
