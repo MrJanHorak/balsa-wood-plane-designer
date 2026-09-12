@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { GliderDesign, UIMode, WingMountType, WingPlanformType } from '@/types/glider';
 import { SliderInput } from '@/components/common/SliderInput';
-import { Plane, Sliders, Shield, Weight } from 'lucide-react';
+import { Plane, Sliders, Shield, Weight, PenTool } from 'lucide-react';
 
 const MOUNT_TYPE_OPTIONS: { value: WingMountType; label: string; simpleLabel: string; defaultY: (maxH: number) => number }[] = [
   { value: 'through_slot', label: 'Through-Slot', simpleLabel: 'Wing Through Body', defaultY: (maxH) => maxH * 0.6 },
@@ -23,12 +23,14 @@ interface ParametricControlsProps {
   glider: GliderDesign;
   mode: UIMode;
   onChange: (updated: GliderDesign) => void;
+  onOpenCustomShapeEditor?: () => void;
 }
 
 export const ParametricControls: React.FC<ParametricControlsProps> = ({
   glider,
   mode,
   onChange,
+  onOpenCustomShapeEditor,
 }) => {
   const isSimple = mode === 'simple';
   const [activeSection, setActiveSection] = useState<'wing' | 'fuse' | 'tail' | 'ballast'>('wing');
@@ -238,6 +240,16 @@ export const ParametricControls: React.FC<ParametricControlsProps> = ({
         {/* 2. Fuselage & Slot Section */}
         {activeSection === 'fuse' && (
           <div>
+            {onOpenCustomShapeEditor && (
+              <button
+                onClick={onOpenCustomShapeEditor}
+                className="w-full mb-2 py-2 px-2 text-xs font-semibold rounded-md border transition-colors flex items-center justify-center gap-1.5 bg-cyan-950/40 text-cyan-300 border-cyan-800 hover:bg-cyan-900/50"
+              >
+                <PenTool className="w-3.5 h-3.5" />
+                {glider.fuselage.profileStyle === 'custom' ? 'Edit Custom Body Shape' : 'Design Your Own Body Shape'}
+              </button>
+            )}
+
             <div className="py-2 border-b border-slate-800/60 space-y-1.5">
               <span className="text-xs font-semibold text-slate-200 block">
                 {isSimple ? 'How the Wing Attaches' : 'Wing Mount Type'}

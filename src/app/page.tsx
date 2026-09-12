@@ -20,6 +20,7 @@ import { Header } from '@/components/ui/Header';
 import { ParametricControls } from '@/components/ui/ParametricControls';
 import { StabilityInspector } from '@/components/ui/StabilityInspector';
 import { TelemetryCard } from '@/components/ui/TelemetryCard';
+import { FuselageProfileEditor } from '@/components/ui/FuselageProfileEditor';
 import { Glider3DViewport } from '@/components/viewport/Glider3DViewport';
 import { Pattern2DViewport } from '@/components/viewport/Pattern2DViewport';
 
@@ -33,6 +34,7 @@ export default function WorkbenchPage() {
   const [activeViewport, setActiveViewport] = useState<'3d' | '2d'>('3d');
   const [saveStatus, setSaveStatus] = useState<'saved' | 'unsaved'>('unsaved');
   const [persistenceMessage, setPersistenceMessage] = useState<string | null>(null);
+  const [customShapeEditorOpen, setCustomShapeEditorOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const glider = design.geometry;
@@ -167,6 +169,7 @@ export default function WorkbenchPage() {
             glider={glider}
             mode={mode}
             onChange={handleChange}
+            onOpenCustomShapeEditor={() => setCustomShapeEditorOpen(true)}
           />
         </div>
 
@@ -195,6 +198,14 @@ export default function WorkbenchPage() {
           />
         </div>
       </main>
+
+      {customShapeEditorOpen && (
+        <FuselageProfileEditor
+          glider={glider}
+          onChange={handleChange}
+          onClose={() => setCustomShapeEditorOpen(false)}
+        />
+      )}
     </div>
   );
 }
