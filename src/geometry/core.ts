@@ -81,6 +81,25 @@ export function calculateBoundingBox(points: Point2D[]): { minX: number; minY: n
 }
 
 /**
+ * Point-in-polygon test using ray-casting (even-odd rule).
+ * Returns true if the test point lies strictly inside the polygon.
+ */
+export function isPointInPolygon(point: Point2D, polygon: Point2D[]): boolean {
+  let inside = false;
+  const n = polygon.length;
+  for (let i = 0, j = n - 1; i < n; j = i++) {
+    const xi = polygon[i].x;
+    const yi = polygon[i].y;
+    const xj = polygon[j].x;
+    const yj = polygon[j].y;
+
+    const intersect = yi > point.y !== yj > point.y && point.x < ((xj - xi) * (point.y - yi)) / (yj - yi) + xi;
+    if (intersect) inside = !inside;
+  }
+  return inside;
+}
+
+/**
  * Semantic alias for a planform's area — same math as polygonArea, but named
  * for callers reasoning about wing/tail/fin planforms rather than generic shapes.
  */

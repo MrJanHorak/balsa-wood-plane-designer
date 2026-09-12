@@ -5,6 +5,7 @@ import { GliderDesign, UIMode } from '@/types/glider';
 import { PlaneDesignDocument } from '@/types/design-document';
 import { DEFAULT_GLIDER } from '@/constants/presets';
 import { analyzeGliderStability } from '@/physics/stability';
+import { validateGliderDesign } from '@/geometry/validation';
 import {
   createPlaneDesignDocument,
   deserializePlaneDesign,
@@ -40,6 +41,11 @@ export default function WorkbenchPage() {
   const aeroReport = useMemo(() => {
     return analyzeGliderStability(glider);
   }, [glider]);
+
+  // Real-time Geometry & Structural validation
+  const validationReport = useMemo(() => {
+    return validateGliderDesign(glider, aeroReport);
+  }, [glider, aeroReport]);
 
   const handleChange = (nextGlider: GliderDesign) => {
     setDesign((prev) => updatePlaneDesignGeometry(prev, nextGlider));
@@ -137,6 +143,7 @@ export default function WorkbenchPage() {
         activeViewport={activeViewport}
         designName={design.metadata.name}
         saveStatus={saveStatus}
+        validationReport={validationReport}
         onSelectPreset={handleSelectPreset}
         onToggleMode={handleToggleMode}
         onSelectViewport={setActiveViewport}
@@ -178,6 +185,7 @@ export default function WorkbenchPage() {
             glider={glider}
             aeroReport={aeroReport}
             mode={mode}
+            validationReport={validationReport}
             onApplyBallast={handleApplyBallast}
           />
 

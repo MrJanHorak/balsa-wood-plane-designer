@@ -4,6 +4,8 @@ import React from 'react';
 import { GliderDesign, UIMode } from '@/types/glider';
 import { GLIDER_PRESETS } from '@/constants/presets';
 import { Plane, Box, Scissors, GraduationCap, Cpu, Layers, Save, FolderOpen, Download, Upload } from 'lucide-react';
+import { ValidationReport } from '@/geometry/validation';
+import { ValidationBadge } from './ValidationBadge';
 
 interface HeaderProps {
   currentPresetId: string;
@@ -11,6 +13,7 @@ interface HeaderProps {
   activeViewport: '3d' | '2d';
   designName: string;
   saveStatus: 'saved' | 'unsaved';
+  validationReport?: ValidationReport;
   onSelectPreset: (preset: GliderDesign) => void;
   onToggleMode: (mode: UIMode) => void;
   onSelectViewport: (vp: '3d' | '2d') => void;
@@ -26,6 +29,7 @@ export const Header: React.FC<HeaderProps> = ({
   activeViewport,
   designName,
   saveStatus,
+  validationReport,
   onSelectPreset,
   onToggleMode,
   onSelectViewport,
@@ -106,6 +110,8 @@ export const Header: React.FC<HeaderProps> = ({
 
       {/* Persistence & Dual-Mode Controls */}
       <div className="flex items-center gap-2 shrink-0">
+        {validationReport && <ValidationBadge report={validationReport} />}
+
         <div className="flex items-center bg-slate-950/80 p-1 rounded-lg border border-slate-800">
           <button onClick={onSaveLocal} className="p-1.5 rounded text-slate-300 hover:bg-slate-800 hover:text-white" title="Save this design in your browser">
             <Save className="w-4 h-4" />

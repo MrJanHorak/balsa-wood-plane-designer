@@ -69,7 +69,7 @@ export function getFuselageProfilePoints(glider: GliderDesign): Point2D[] {
     ];
   } else {
     // Default 'trainer' / 'curved_classic' with intelligent adaptive wing saddle/pylon
-    const pylonPeakY = Math.max(effectiveMaxHeight, slotTopY + 6);
+    const pylonPeakY = effectiveMaxHeight;
     points = [
       { x: 0, y: noseHeightMm * 0.5 },
       { x: nosePeakX * 0.3, y: noseHeightMm * 0.9 },

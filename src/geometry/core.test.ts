@@ -7,6 +7,7 @@ import {
   calculateTrapezoidPlanformPoints,
   calculateEllipticalPlanformPoints,
   calculateWingPlanformPoints,
+  isPointInPolygon,
 } from './core';
 
 describe('polygonArea', () => {
@@ -123,5 +124,26 @@ describe('calculateWingPlanformPoints (dispatcher)', () => {
     const dispatched = calculateWingPlanformPoints('elliptical', 60, 30, 300, 5);
     const direct = calculateEllipticalPlanformPoints(60, 30, 300, 5);
     expect(polygonArea(dispatched)).toBeCloseTo(polygonArea(direct));
+  });
+});
+
+describe('isPointInPolygon', () => {
+  const square = [
+    { x: 0, y: 0 },
+    { x: 10, y: 0 },
+    { x: 10, y: 10 },
+    { x: 0, y: 10 },
+  ];
+
+  it('correctly identifies interior points', () => {
+    expect(isPointInPolygon({ x: 5, y: 5 }, square)).toBe(true);
+    expect(isPointInPolygon({ x: 1, y: 1 }, square)).toBe(true);
+  });
+
+  it('correctly identifies exterior points', () => {
+    expect(isPointInPolygon({ x: -1, y: 5 }, square)).toBe(false);
+    expect(isPointInPolygon({ x: 15, y: 5 }, square)).toBe(false);
+    expect(isPointInPolygon({ x: 5, y: 15 }, square)).toBe(false);
+    expect(isPointInPolygon({ x: 5, y: -5 }, square)).toBe(false);
   });
 });

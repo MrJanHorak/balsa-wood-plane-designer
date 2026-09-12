@@ -223,3 +223,26 @@ and `src/types/design-document.ts` without restructuring `GliderDesign`.
 This remains intentionally client-only. Authentication, cloud persistence,
 comments, likes, and a social feed should be added only after the local design
 contract is stable.
+
+## 11. Geometry & Structural Validation Layer (Phase 6)
+
+Implemented in `src/geometry/validation.ts`, `src/geometry/validation.test.ts`,
+and UI badge/inspectors (`ValidationBadge.tsx`, `StabilityInspector.tsx`,
+`Header.tsx`):
+
+- **Structural Enclosure Checks**:
+  - Wing slot must maintain clean clearance from the nose ($X \ge 8\text{mm}$) and boom.
+  - Checks containment of rotated slot corners against the fuselage profile polygon (`isPointInPolygon`).
+  - Web thickness audit: samples the upper and lower solid balsa web above/below the slot, warning if bridge thickness $< 2.0\text{mm}$ (fragile joint that snaps during laser cutting) or erroring if the slot breaches the spine/belly.
+  - Tail slot clearance: verifies tail slot does not overlap wing, starts within the fuselage, and accommodates both enclosed through-slots and open-ended rear sliding stabilizer slots.
+- **Material & Stock Sheet Fit**:
+  - Checks wing root chord and fuselage depth against commercial 3" ($76.2\text{mm}$) and 4" ($101.6\text{mm}$) stock balsa sheets, providing informative guidance when multi-sheet joining is required.
+  - Checks wingspan against standard 36" ($914.4\text{mm}$) balsa sheet length.
+- **Aerodynamic Feasibility**:
+  - Audits horizontal tail volume ratio ($V_h \ge 0.28$), roll dihedral angle ($\Gamma \ge 2.0^\circ$), aspect ratio flutter limits ($AR \le 15.0$), and static margin balance ($SM \ge 0\%$).
+- **UI Integration**:
+  - Compact `ValidationBadge` in header gives real-time visual feedback ("Laser-Ready & Sound", "Warnings", "Structural Errors") with an audit popover explaining issues and suggested fixes.
+  - High-priority structural alert banner embedded directly in `StabilityInspector`.
+
+**47/47 tests pass** across all four test suites.
+

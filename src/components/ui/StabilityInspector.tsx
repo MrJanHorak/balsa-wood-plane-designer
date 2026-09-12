@@ -3,12 +3,14 @@
 import React from 'react';
 import confetti from 'canvas-confetti';
 import { GliderAeroReport, GliderDesign, UIMode } from '@/types/glider';
-import { Sparkles, AlertTriangle, CheckCircle2, ArrowDown, Scale, Compass } from 'lucide-react';
+import { ValidationReport } from '@/geometry/validation';
+import { Sparkles, AlertTriangle, CheckCircle2, ArrowDown, Scale, Compass, Wrench, ShieldAlert } from 'lucide-react';
 
 interface StabilityInspectorProps {
   glider: GliderDesign;
   aeroReport: GliderAeroReport;
   mode: UIMode;
+  validationReport?: ValidationReport;
   onApplyBallast: (ballastGrams: number) => void;
 }
 
@@ -16,6 +18,7 @@ export const StabilityInspector: React.FC<StabilityInspectorProps> = ({
   glider,
   aeroReport,
   mode,
+  validationReport,
   onApplyBallast,
 }) => {
   const isSimple = mode === 'simple';
@@ -147,6 +150,25 @@ export const StabilityInspector: React.FC<StabilityInspectorProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Structural & Manufacturing Alert Banner */}
+      {validationReport && !validationReport.isValid && (
+        <div className="p-3 rounded-lg border border-rose-500/40 bg-rose-500/10 text-rose-200 text-xs flex flex-col gap-1.5 shadow-sm">
+          <div className="flex items-center gap-1.5 font-bold text-rose-300">
+            <ShieldAlert className="w-4 h-4 text-rose-400 shrink-0" />
+            <span>Structural Issue: {validationReport.errors[0]?.title}</span>
+          </div>
+          <p className="text-[11px] text-rose-200/90 leading-snug">
+            {validationReport.errors[0]?.message}
+          </p>
+          {validationReport.errors[0]?.suggestedFix && (
+            <div className="flex items-start gap-1 text-[10px] text-amber-300 pt-0.5 border-t border-rose-500/30">
+              <Wrench className="w-3 h-3 text-amber-400 shrink-0 mt-0.5" />
+              <span><strong>Fix:</strong> {validationReport.errors[0].suggestedFix}</span>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Plain-English STEM Educational Coach */}
       <div className={`p-3 rounded-lg border ${colors.bg} flex items-start gap-2.5`}>
