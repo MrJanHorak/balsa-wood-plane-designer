@@ -33,8 +33,19 @@ const HEADER_SPACE = 26;
  * space. Works for any part regardless of its own local coordinate origin —
  * fuselage/pylon are drawn from (0,0), wing/tail are span-centered on Y=0 —
  * so parts can never end up positioned outside the sheet they're stacked on.
+ *
+ * `flip` handles a real orientation bug: the fuselage and pylon are defined
+ * with Y increasing *upward* (belly at 0, spine highest) — the same
+ * convention physics, the 3D view, and getFuselageProfilePoints all use.
+ * SVG's Y axis increases *downward*, so drawing those parts' points
+ * verbatim renders them spine-down / belly-up — upside down relative to
+ * every other view of the same design (this is the same fix applied in
+ * FuselageProfileEditor.tsx, ported here since the laser-cut export is the
+ * one place this actually matters physically). The rotated wing/tail parts
+ * don't need this: a flat sheet planform has no meaningful "up" side, so a
+ * chordwise mirror there is harmless (the cut piece can be flipped over).
  */
-function layoutPart(part: FlatPartSvg, targetX: number, targetY: number, rotate: boolean): LaidOutPart {
+export function layoutPart(part: FlatPartSvg, targetX: number, targetY: number, rotate: boolean, flip: boolean = false): LaidOutPart {
   const { minX, minY, maxX, maxY } = part.boundingBox;
   if (rotate) {
     const a = targetX + maxY;
@@ -45,6 +56,17 @@ function layoutPart(part: FlatPartSvg, targetX: number, targetY: number, rotate:
       transform: `translate(${a.toFixed(2)}, ${b.toFixed(2)}) rotate(90)`,
       // Label sits above the rotated part, centered on its rotated width
       labelX: targetX + (maxY - minY) / 2,
+      labelY: targetY - 6,
+    };
+  }
+  if (flip) {
+    const a = targetX - minX;
+    const b = targetY + maxY;
+    return {
+      part,
+      rotate,
+      transform: `translate(${a.toFixed(2)}, ${b.toFixed(2)}) scale(1,-1)`,
+      labelX: targetX + (maxX - minX) / 2,
       labelY: targetY - 6,
     };
   }
@@ -87,13 +109,13 @@ export const Pattern2DViewport: React.FC<Pattern2DViewportProps> = ({ glider }) 
   // measured extents — never fixed magic-number offsets — so nothing added
   // (like the pylon) or grown (a wider wingspan, a taller fuselage) can ever
   // overflow off the visible sheet.
-  const rows: { part: FlatPartSvg; rotate: boolean; label: string }[] = [
-    { part: fuselage, rotate: false, label: `Fuselage (${Math.round(fuselage.dimensions.widthMm)}mm)` },
-    { part: wing, rotate: true, label: `Main Wing (Span: ${glider.wing.spanMm}mm)` },
-    { part: tail, rotate: true, label: `Tail (Span: ${glider.horizontalStabilizer.spanMm}mm)` },
+  const rows: { part: FlatPartSvg; rotate: boolean; flip: boolean; label: string }[] = [
+    { part: fuselage, rotate: false, flip: true, label: `Fuselage (${Math.round(fuselage.dimensions.widthMm)}mm)` },
+    { part: wing, rotate: true, flip: false, label: `Main Wing (Span: ${glider.wing.spanMm}mm)` },
+    { part: tail, rotate: true, flip: false, label: `Tail (Span: ${glider.horizontalStabilizer.spanMm}mm)` },
   ];
   if (pylon) {
-    rows.push({ part: pylon, rotate: false, label: `Pylon (${pylon.dimensions.widthMm}×${Math.round(pylon.dimensions.heightMm)}mm)` });
+    rows.push({ part: pylon, rotate: false, flip: true, label: `Pylon (${pylon.dimensions.widthMm}×${Math.round(pylon.dimensions.heightMm)}mm)` });
   }
 
   let yCursor = HEADER_SPACE;
@@ -108,7 +130,7 @@ export const Pattern2DViewport: React.FC<Pattern2DViewportProps> = ({ glider }) 
       ? row.part.boundingBox.maxX - row.part.boundingBox.minX
       : row.part.boundingBox.maxY - row.part.boundingBox.minY;
 
-    const laid = layoutPart(row.part, SHEET_MARGIN, yCursor + 14, row.rotate);
+    const laid = layoutPart(row.part, SHEET_MARGIN, yCursor + 14, row.rotate, row.flip);
     laidOut.push({ ...laid, label: row.label });
 
     maxRowWidth = Math.max(maxRowWidth, effWidth);
