@@ -3,6 +3,7 @@
 import React, { useRef, useState, useCallback } from 'react';
 import { GliderDesign, FuselageNode } from '@/types/glider';
 import { getFuselageProfilePoints } from '@/physics/massBalance';
+import { pointsToSmoothClosedPath } from '@/geometry/core';
 import { X, Trash2, RotateCcw, Info, Undo2, Redo2 } from 'lucide-react';
 
 interface FuselageProfileEditorProps {
@@ -198,10 +199,11 @@ export const FuselageProfileEditor: React.FC<FuselageProfileEditorProps> = ({ gl
   const viewW = maxX - minX;
   const viewH = maxY - minY;
 
-  const outlinePath =
-    nodes.length > 0
-      ? `M ${nodes[0].xMm} ${nodes[0].yMm} ` + nodes.slice(1).map((n) => `L ${n.xMm} ${n.yMm}`).join(' ') + ' Z'
-      : '';
+  // Smoothed through the actual node positions (Catmull-Rom, same as the
+  // 2D cut-pattern export) so the body reads as a curved contour instead
+  // of straight facets between drag handles — the handles themselves stay
+  // exactly where the user put them; only the connecting outline is curved.
+  const outlinePath = pointsToSmoothClosedPath(nodes.map((n) => ({ x: n.xMm, y: n.yMm })));
 
   const selectedNode = nodes.find((n) => n.id === selectedId) ?? null;
 

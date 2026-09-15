@@ -9,6 +9,8 @@ import {
   calculateWingPlanformPoints,
   getWingStationAt,
   isPointInPolygon,
+  pointsToSmoothClosedPath,
+  scalePointsAboutOrigin,
 } from './core';
 
 describe('polygonArea', () => {
@@ -248,3 +250,60 @@ describe('3D wing mesh camber (extrusion3d.ts, via the canonical station lookup)
   });
 });
 
+
+describe('pointsToSmoothClosedPath', () => {
+  it('returns an empty string for fewer than 3 points', () => {
+    expect(pointsToSmoothClosedPath([])).toBe('');
+    expect(pointsToSmoothClosedPath([{ x: 0, y: 0 }])).toBe('');
+    expect(pointsToSmoothClosedPath([{ x: 0, y: 0 }, { x: 1, y: 1 }])).toBe('');
+  });
+
+  it('starts with an M at the first point and ends with a closing Z', () => {
+    const points = [{ x: 0, y: 0 }, { x: 10, y: 5 }, { x: 10, y: 0 }, { x: 5, y: -3 }];
+    const path = pointsToSmoothClosedPath(points);
+    expect(path.startsWith('M 0 0')).toBe(true);
+    expect(path.trim().endsWith('Z')).toBe(true);
+  });
+
+  it('the curve actually passes through every input point (each appears as a C command endpoint)', () => {
+    const points = [{ x: 0, y: 0 }, { x: 20, y: 15 }, { x: 40, y: 0 }, { x: 20, y: -10 }];
+    const path = pointsToSmoothClosedPath(points);
+    // Each point after the first should appear as the final (endpoint) triplet of a "C x1 y1, x2 y2, x y" command.
+    for (const p of points.slice(1)) {
+      expect(path).toContain(`${p.x.toFixed(2)} ${p.y.toFixed(2)}`);
+    }
+  });
+
+  it('produces one C command per point (a full closed loop, not an open curve)', () => {
+    const points = [{ x: 0, y: 0 }, { x: 10, y: 10 }, { x: 20, y: 0 }, { x: 10, y: -10 }, { x: 5, y: 0 }];
+    const path = pointsToSmoothClosedPath(points);
+    const curveCommandCount = (path.match(/C /g) || []).length;
+    expect(curveCommandCount).toBe(points.length);
+  });
+});
+
+describe('scalePointsAboutOrigin', () => {
+  it('scales X and Y independently, anchored at the origin', () => {
+    const points = [{ x: 10, y: 4 }, { x: 20, y: 8 }];
+    const scaled = scalePointsAboutOrigin(points, 2, 0.5);
+    expect(scaled).toEqual([{ x: 20, y: 2 }, { x: 40, y: 4 }]);
+  });
+
+  it('a scale factor of 1 leaves points unchanged', () => {
+    const points = [{ x: 5, y: -3 }, { x: -2, y: 7 }];
+    expect(scalePointsAboutOrigin(points, 1, 1)).toEqual(points);
+  });
+
+  it('handles negative Y values correctly (e.g. a bottom-saddle dip below the belly line)', () => {
+    const points = [{ x: 10, y: -14 }];
+    const scaled = scalePointsAboutOrigin(points, 1, 2);
+    expect(scaled[0].y).toBe(-28);
+  });
+
+  it('does not mutate the input array', () => {
+    const points = [{ x: 10, y: 4 }];
+    const before = JSON.stringify(points);
+    scalePointsAboutOrigin(points, 3, 3);
+    expect(JSON.stringify(points)).toBe(before);
+  });
+});

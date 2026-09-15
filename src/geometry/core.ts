@@ -19,6 +19,58 @@ export interface Point2D {
 export type WingPlanformKind = 'straight' | 'elliptical';
 
 /**
+ * Builds a smooth, closed SVG path through a sequence of points using a
+ * uniform Catmull-Rom spline, converted to cubic Beziers (the standard
+ * technique — each segment's control points are derived from its
+ * neighbors so the curve passes through every input point with continuous
+ * tangents, rather than the sharp corners a plain polygon has at each
+ * vertex).
+ *
+ * This is display/manufacturing-only: physics, validation, and the 3D mesh
+ * all still use the straight-line polygon from getFuselageProfilePoints —
+ * same precedent as the trapezoid MAC approximation for elliptical wings
+ * (see docs/ARCHITECTURE_REVIEW.md §5). A fuselage's area/mass/CG from the
+ * polygon approximation and its true smoothed-curve area differ by a
+ * second-order amount that doesn't matter for a hobby balsa glider, and
+ * smoothing lets the actual cut edge — and the shape a person drags in the
+ * custom editor — read as a body contour instead of a faceted polygon.
+ *
+ * Requires at least 3 points; returns an empty string otherwise (nothing
+ * sensible to draw).
+ */
+export function pointsToSmoothClosedPath(points: Point2D[]): string {
+  const n = points.length;
+  if (n < 3) return '';
+
+  const at = (i: number): Point2D => points[((i % n) + n) % n];
+
+  let d = `M ${points[0].x} ${points[0].y}`;
+  for (let i = 0; i < n; i++) {
+    const p0 = at(i - 1);
+    const p1 = at(i);
+    const p2 = at(i + 1);
+    const p3 = at(i + 2);
+
+    const c1 = { x: p1.x + (p2.x - p0.x) / 6, y: p1.y + (p2.y - p0.y) / 6 };
+    const c2 = { x: p2.x - (p3.x - p1.x) / 6, y: p2.y - (p3.y - p1.y) / 6 };
+
+    d += ` C ${c1.x.toFixed(2)} ${c1.y.toFixed(2)}, ${c2.x.toFixed(2)} ${c2.y.toFixed(2)}, ${p2.x.toFixed(2)} ${p2.y.toFixed(2)}`;
+  }
+  return d + ' Z';
+}
+
+/**
+ * Scales a set of points independently along each axis, anchored at the
+ * origin. Used so a user's custom freeform fuselage/wing shape can still
+ * respond to "length" / "max height" style sliders after they've switched
+ * to a custom shape — those sliders would otherwise do nothing once a
+ * shape is absolute node coordinates rather than formula parameters.
+ */
+export function scalePointsAboutOrigin(points: Point2D[], scaleX: number, scaleY: number): Point2D[] {
+  return points.map((p) => ({ x: p.x * scaleX, y: p.y * scaleY }));
+}
+
+/**
  * Polygon area via the Shoelace formula. Works for any simple
  * (non-self-intersecting) polygon; the last point is implicitly connected
  * back to the first.

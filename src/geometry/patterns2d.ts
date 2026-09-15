@@ -1,6 +1,6 @@
 import { GliderDesign, getEffectiveTipChordMm, getWingPlanformKind } from '@/types/glider';
 import { getFuselageProfilePoints } from '@/physics/massBalance';
-import { Point2D, calculateWingPlanformPoints, calculateTrapezoidPlanformPoints, calculateBoundingBox } from '@/geometry/core';
+import { Point2D, calculateWingPlanformPoints, calculateTrapezoidPlanformPoints, calculateBoundingBox, pointsToSmoothClosedPath } from '@/geometry/core';
 
 export interface FlatPartSvg {
   id: string;
@@ -26,7 +26,12 @@ export function generateFuselageFlatPattern(glider: GliderDesign): FlatPartSvg {
   const { fuselage } = glider;
   const points = getFuselageProfilePoints(glider);
 
-  const outlinePath = pointsToPath(points);
+  // Smoothed through the same points used for physics/validation/3D — this
+  // is display/cut-line only, so the wing-mount saddle/pylon notch and
+  // nose/tail contour read as a body curve instead of straight polygon
+  // facets. See pointsToSmoothClosedPath for why this doesn't need to
+  // agree exactly with the straight-line polygon area used elsewhere.
+  const outlinePath = pointsToSmoothClosedPath(points);
 
   const slotCutouts: string[] = [];
   const scoreLines: string[] = [];

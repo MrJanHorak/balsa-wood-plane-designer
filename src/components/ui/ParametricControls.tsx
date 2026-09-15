@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { GliderDesign, UIMode, WingMountType, WingPlanformType } from '@/types/glider';
 import { SliderInput } from '@/components/common/SliderInput';
 import { Plane, Sliders, Shield, Weight, PenTool } from 'lucide-react';
+import { scalePointsAboutOrigin } from '@/geometry/core';
 
 const MOUNT_TYPE_OPTIONS: { value: WingMountType; label: string; simpleLabel: string; defaultY: (maxH: number) => number }[] = [
   { value: 'through_slot', label: 'Through-Slot', simpleLabel: 'Wing Through Body', defaultY: (maxH) => maxH * 0.6 },
@@ -43,9 +44,38 @@ export const ParametricControls: React.FC<ParametricControlsProps> = ({
   };
 
   const updateFuselage = (fields: Partial<GliderDesign['fuselage']>) => {
+    const current = glider.fuselage;
+    let nextFuselage = { ...current, ...fields };
+
+    // Once a shape is custom (absolute node coordinates), the Length /
+    // Max Height sliders have nothing to act on by default — they only
+    // drive the parametric formulas. Rescale the custom nodes to match
+    // instead, so those sliders keep working: stretch/compress the whole
+    // shape about the nose (x=0) / belly (y=0) baseline rather than
+    // silently doing nothing.
+    if (current.profileStyle === 'custom' && current.customNodes && current.customNodes.length >= 3) {
+      const currentMaxX = Math.max(...current.customNodes.map((n) => n.xMm));
+      const currentMaxY = Math.max(...current.customNodes.map((n) => n.yMm));
+
+      const scaleX = fields.lengthMm !== undefined && currentMaxX > 0.01 ? fields.lengthMm / currentMaxX : 1;
+      const scaleY = fields.maxHeightMm !== undefined && currentMaxY > 0.01 ? fields.maxHeightMm / currentMaxY : 1;
+
+      if (scaleX !== 1 || scaleY !== 1) {
+        const scaled = scalePointsAboutOrigin(
+          current.customNodes.map((n) => ({ x: n.xMm, y: n.yMm })),
+          scaleX,
+          scaleY
+        );
+        nextFuselage = {
+          ...nextFuselage,
+          customNodes: current.customNodes.map((n, i) => ({ ...n, xMm: scaled[i].x, yMm: scaled[i].y })),
+        };
+      }
+    }
+
     onChange({
       ...glider,
-      fuselage: { ...glider.fuselage, ...fields },
+      fuselage: nextFuselage,
     });
   };
 
