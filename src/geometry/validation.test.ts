@@ -66,6 +66,7 @@ describe('validateGliderDesign', () => {
 
   it('detects thin upper balsa bridge when auto-reinforce is off', () => {
     const design: GliderDesign = structuredClone(GLIDER_PRESETS.TRAINER);
+    design.wing.camberPercent = 0;
     design.fuselage.autoReinforceSpine = false;
     design.fuselage.maxHeightMm = 32;
     // Wing slot top edge at 28 + 1.7/2 = 28.85mm -> upper web is ~1.15mm (< 2.0mm)

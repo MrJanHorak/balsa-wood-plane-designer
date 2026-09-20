@@ -307,3 +307,106 @@ describe('scalePointsAboutOrigin', () => {
     expect(JSON.stringify(points)).toBe(before);
   });
 });
+
+describe('pointsToPath', () => {
+  it('returns an empty string for empty input', async () => {
+    const { pointsToPath } = await import('./core');
+    expect(pointsToPath([])).toBe('');
+  });
+
+  it('formats points as a closed SVG path with M, L, and Z', async () => {
+    const { pointsToPath } = await import('./core');
+    const pts = [{ x: 10, y: 20 }, { x: 30, y: 40 }, { x: 50, y: 20 }];
+    const d = pointsToPath(pts);
+    expect(d).toBe('M 10.00 20.00 L 30.00 40.00 L 50.00 20.00 Z');
+  });
+});
+
+describe('sampleSmoothClosedCurve', () => {
+  it('returns original points if fewer than 3 points provided', async () => {
+    const { sampleSmoothClosedCurve } = await import('./core');
+    const pts = [{ x: 0, y: 0 }, { x: 10, y: 10 }];
+    expect(sampleSmoothClosedCurve(pts)).toEqual(pts);
+  });
+
+  it('samples a dense closed polygon through all input points', async () => {
+    const { sampleSmoothClosedCurve } = await import('./core');
+    const pts = [
+      { x: 0, y: 0 },
+      { x: 50, y: 30 },
+      { x: 100, y: 10 },
+      { x: 80, y: 0 },
+    ];
+    const sampled = sampleSmoothClosedCurve(pts, 8);
+    expect(sampled.length).toBe(pts.length * 8);
+
+    // The sample at step=0 of each segment must equal the input control point
+    for (let i = 0; i < pts.length; i++) {
+      const sampledPt = sampled[i * 8];
+      expect(sampledPt.x).toBeCloseTo(pts[i].x);
+      expect(sampledPt.y).toBeCloseTo(pts[i].y);
+    }
+  });
+});
+
+describe('calculateSlotPoints', () => {
+  const flatSlot = {
+    xPositionMm: 50,
+    yPositionMm: 20,
+    lengthMm: 60,
+    thicknessMm: 2,
+    angleDeg: 0,
+  };
+
+  it('generates a 4-point rectangle when camber is 0', async () => {
+    const { calculateSlotPoints } = await import('./core');
+    const pts = calculateSlotPoints(flatSlot, 60, 0);
+    expect(pts).toHaveLength(4);
+    // CCW order: bottom-left, bottom-right, top-right, top-left
+    expect(pts[0]).toEqual({ x: 50, y: 19 });
+    expect(pts[1]).toEqual({ x: 110, y: 19 });
+    expect(pts[2]).toEqual({ x: 110, y: 21 });
+    expect(pts[3]).toEqual({ x: 50, y: 21 });
+  });
+
+  it('arches upward when camber is positive', async () => {
+    const { calculateSlotPoints } = await import('./core');
+    const camberPercent = 5; // 5% of 60mm = 3.0mm rise
+    const pts = calculateSlotPoints(flatSlot, 60, camberPercent, 16);
+    expect(pts.length).toBeGreaterThan(4);
+
+    // LE and TE edges should be at un-cambered baseline (y = 19 and 21)
+    const lowerLE = pts[0];
+    const upperLE = pts[pts.length - 1];
+    expect(lowerLE.y).toBeCloseTo(19, 1);
+    expect(upperLE.y).toBeCloseTo(21, 1);
+
+    // Find the maximum Y of the upper edge (around 40% chord = x ≈ 74)
+    const maxY = Math.max(...pts.map((p) => p.y));
+    // Max Y should be baseline (21) + camber rise (3.0) ≈ 24.0
+    expect(maxY).toBeCloseTo(24.0, 0.5);
+
+    // Verify uniform vertical slot thickness across all sample pairs
+    const N = 16;
+    for (let i = 0; i <= N; i++) {
+      const lower = pts[i];
+      const upper = pts[pts.length - 1 - i];
+      expect(upper.x).toBeCloseTo(lower.x, 1);
+      expect(upper.y - lower.y).toBeCloseTo(flatSlot.thicknessMm, 1);
+    }
+  });
+
+  it('respects slot incidence angle rotation', async () => {
+    const { calculateSlotPoints } = await import('./core');
+    const rotatedSlot = {
+      ...flatSlot,
+      angleDeg: 5, // 5 degree upward pitch
+    };
+    const pts = calculateSlotPoints(rotatedSlot, 60, 0);
+    expect(pts).toHaveLength(4);
+    // Trailing edge Y should be higher than leading edge Y due to positive incidence
+    expect(pts[1].y).toBeGreaterThan(pts[0].y);
+    expect(pts[2].y).toBeGreaterThan(pts[3].y);
+  });
+});
+

@@ -3,7 +3,7 @@
 import React, { useRef, useState, useCallback } from 'react';
 import { GliderDesign, FuselageNode } from '@/types/glider';
 import { getFuselageProfilePoints } from '@/physics/massBalance';
-import { pointsToSmoothClosedPath } from '@/geometry/core';
+import { pointsToSmoothClosedPath, calculateSlotPoints, pointsToPath } from '@/geometry/core';
 import { X, Trash2, RotateCcw, Info, Undo2, Redo2 } from 'lucide-react';
 
 interface FuselageProfileEditorProps {
@@ -287,21 +287,15 @@ export const FuselageProfileEditor: React.FC<FuselageProfileEditorProps> = ({ gl
             */}
             <g transform="scale(1,-1)">
             {/* Wing & tail slot context overlays (read-only reference) */}
-            <rect
-              x={glider.fuselage.wingSlot.xPositionMm}
-              y={glider.fuselage.wingSlot.yPositionMm - glider.fuselage.wingSlot.thicknessMm / 2}
-              width={glider.fuselage.wingSlot.lengthMm}
-              height={glider.fuselage.wingSlot.thicknessMm}
+            <path
+              d={pointsToPath(calculateSlotPoints(glider.fuselage.wingSlot, glider.wing.rootChordMm, glider.wing.camberPercent))}
               fill="rgba(251, 191, 36, 0.15)"
               stroke="#fbbf24"
               strokeWidth={viewW / 400}
               strokeDasharray={`${viewW / 100} ${viewW / 200}`}
             />
-            <rect
-              x={glider.fuselage.tailSlot.xPositionMm}
-              y={glider.fuselage.tailSlot.yPositionMm - glider.fuselage.tailSlot.thicknessMm / 2}
-              width={glider.fuselage.tailSlot.lengthMm}
-              height={glider.fuselage.tailSlot.thicknessMm}
+            <path
+              d={pointsToPath(calculateSlotPoints(glider.fuselage.tailSlot))}
               fill="rgba(6, 182, 212, 0.15)"
               stroke="#06b6d4"
               strokeWidth={viewW / 400}

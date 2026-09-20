@@ -59,6 +59,155 @@ export function pointsToSmoothClosedPath(points: Point2D[]): string {
   return d + ' Z';
 }
 
+/** Renders a closed point list as an SVG path's `d` attribute: M x0 y0 L x1 y1 ... Z */
+export function pointsToPath(points: Point2D[]): string {
+  if (points.length === 0) return '';
+  return `M ${points[0].x.toFixed(2)} ${points[0].y.toFixed(2)} ` +
+    points.slice(1).map((p) => `L ${p.x.toFixed(2)} ${p.y.toFixed(2)}`).join(' ') + ' Z';
+}
+
+/**
+ * Samples the smooth Catmull-Rom closed curve through `points` into a dense polygon.
+ * Each segment between control points is sampled into `samplesPerSegment` steps along
+ * the cubic Bezier curve.
+ *
+ * This provides the canonical point representation of the smoothed fuselage for:
+ * 1. 3D extrusion (so the 3D model is silky smooth, matching the 2D curve)
+ * 2. Accurate physical area, centroid, and mass calculations
+ * 3. Exact structural enclosure validation
+ */
+export function sampleSmoothClosedCurve(points: Point2D[], samplesPerSegment: number = 8): Point2D[] {
+  const n = points.length;
+  if (n < 3) return points;
+
+  const at = (i: number): Point2D => points[((i % n) + n) % n];
+  const result: Point2D[] = [];
+
+  for (let i = 0; i < n; i++) {
+    const p0 = at(i - 1);
+    const p1 = at(i);
+    const p2 = at(i + 1);
+    const p3 = at(i + 2);
+
+    const c1 = { x: p1.x + (p2.x - p0.x) / 6, y: p1.y + (p2.y - p0.y) / 6 };
+    const c2 = { x: p2.x - (p3.x - p1.x) / 6, y: p2.y - (p3.y - p1.y) / 6 };
+
+    for (let step = 0; step < samplesPerSegment; step++) {
+      const u = step / samplesPerSegment;
+      const u2 = u * u;
+      const u3 = u2 * u;
+      const oneMinusU = 1 - u;
+      const oneMinusU2 = oneMinusU * oneMinusU;
+      const oneMinusU3 = oneMinusU2 * oneMinusU;
+
+      const x = oneMinusU3 * p1.x + 3 * oneMinusU2 * u * c1.x + 3 * oneMinusU * u2 * c2.x + u3 * p2.x;
+      const y = oneMinusU3 * p1.y + 3 * oneMinusU2 * u * c1.y + 3 * oneMinusU * u2 * c2.y + u3 * p2.y;
+
+      result.push({ x, y });
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Computes aerodynamic mean camber line elevation for a normalized chord fraction s in [0, 1].
+ * Uses NACA-style camber line with maximum camber at 40% chord (p = 0.4).
+ * Returns height in mm.
+ */
+export function getCamberElevation(s: number, chord: number, camberPercent: number): number {
+  if (camberPercent <= 0 || chord <= 0) return 0;
+  const clampedS = Math.max(0, Math.min(1, s));
+  const h = chord * (camberPercent / 100);
+  const p = 0.4;
+  if (clampedS <= p) {
+    return (h / (p * p)) * (2 * p * clampedS - clampedS * clampedS);
+  } else {
+    return (h / ((1 - p) * (1 - p))) * ((1 - 2 * p) + 2 * p * clampedS - clampedS * clampedS);
+  }
+}
+
+export interface SlotGeometryInput {
+  xPositionMm: number;
+  yPositionMm: number;
+  lengthMm: number;
+  thicknessMm: number;
+  angleDeg: number;
+}
+
+/**
+ * Generates the 2D polygon outline (in fuselage coordinate space) for a wing or tail slot.
+ *
+ * When camberPercent is 0 (or unspecified), forms a straight rectangle rotated by `angleDeg`.
+ * When camberPercent > 0, the slot arches upward with the wing's true mean camber line,
+ * ensuring that a cambered balsa wing slides cleanly through the fuselage sheet with
+ * uniform slot width and kerf.
+ *
+ * Vertex order: Counter-Clockwise (lower edge from LE to TE, then upper edge from TE to LE, closed).
+ */
+export function calculateSlotPoints(
+  slot: SlotGeometryInput,
+  wingRootChordMm?: number,
+  camberPercent: number = 0,
+  segments: number = 16
+): Point2D[] {
+  const angleRad = (slot.angleDeg * Math.PI) / 180;
+  const cosA = Math.cos(angleRad);
+  const sinA = Math.sin(angleRad);
+  const halfThick = slot.thicknessMm / 2;
+  const chord = wingRootChordMm || slot.lengthMm;
+
+  if (camberPercent <= 0) {
+    // Exact straight 4-corner rectangle (CCW: bottom-left -> bottom-right -> top-right -> top-left)
+    return [
+      {
+        x: slot.xPositionMm + halfThick * sinA,
+        y: slot.yPositionMm - halfThick * cosA,
+      },
+      {
+        x: slot.xPositionMm + slot.lengthMm * cosA + halfThick * sinA,
+        y: slot.yPositionMm + slot.lengthMm * sinA - halfThick * cosA,
+      },
+      {
+        x: slot.xPositionMm + slot.lengthMm * cosA - halfThick * sinA,
+        y: slot.yPositionMm + slot.lengthMm * sinA + halfThick * cosA,
+      },
+      {
+        x: slot.xPositionMm - halfThick * sinA,
+        y: slot.yPositionMm + halfThick * cosA,
+      },
+    ];
+  }
+
+  // Cambered arch: Lower edge (LE -> TE) then Upper edge (TE -> LE)
+  const lowerPoints: Point2D[] = [];
+  const upperPoints: Point2D[] = [];
+
+  for (let i = 0; i <= segments; i++) {
+    const s = i / segments;
+    const xLocal = s * slot.lengthMm;
+    const sChord = Math.min(1, Math.max(0, xLocal / chord));
+    const camb = getCamberElevation(sChord, chord, camberPercent);
+
+    const yLowerLocal = camb - halfThick;
+    const yUpperLocal = camb + halfThick;
+
+    // Transform local (xLocal, yLocal) to global fuselage coordinates
+    lowerPoints.push({
+      x: slot.xPositionMm + xLocal * cosA - yLowerLocal * sinA,
+      y: slot.yPositionMm + xLocal * sinA + yLowerLocal * cosA,
+    });
+
+    upperPoints.push({
+      x: slot.xPositionMm + xLocal * cosA - yUpperLocal * sinA,
+      y: slot.yPositionMm + xLocal * sinA + yUpperLocal * cosA,
+    });
+  }
+
+  // CCW loop: lower edge from LE to TE, then upper edge from TE to LE
+  return [...lowerPoints, ...upperPoints.reverse()];
+}
+
 /**
  * Scales a set of points independently along each axis, anchored at the
  * origin. Used so a user's custom freeform fuselage/wing shape can still

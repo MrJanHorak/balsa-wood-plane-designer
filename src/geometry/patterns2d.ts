@@ -1,6 +1,14 @@
 import { GliderDesign, getEffectiveTipChordMm, getWingPlanformKind } from '@/types/glider';
 import { getFuselageProfilePoints } from '@/physics/massBalance';
-import { Point2D, calculateWingPlanformPoints, calculateTrapezoidPlanformPoints, calculateBoundingBox, pointsToSmoothClosedPath } from '@/geometry/core';
+import {
+  Point2D,
+  calculateWingPlanformPoints,
+  calculateTrapezoidPlanformPoints,
+  calculateBoundingBox,
+  pointsToSmoothClosedPath,
+  calculateSlotPoints,
+  pointsToPath,
+} from '@/geometry/core';
 
 export interface FlatPartSvg {
   id: string;
@@ -10,13 +18,6 @@ export interface FlatPartSvg {
   scoreLines: string[];
   dimensions: { widthMm: number; heightMm: number };
   boundingBox: { minX: number; minY: number; maxX: number; maxY: number };
-}
-
-/** Renders a closed point list as an SVG path's `d` attribute. */
-function pointsToPath(points: Point2D[]): string {
-  if (points.length === 0) return '';
-  return `M ${points[0].x.toFixed(2)} ${points[0].y.toFixed(2)} ` +
-    points.slice(1).map(p => `L ${p.x.toFixed(2)} ${p.y.toFixed(2)}`).join(' ') + ' Z';
 }
 
 /**
@@ -37,41 +38,26 @@ export function generateFuselageFlatPattern(glider: GliderDesign): FlatPartSvg {
   const scoreLines: string[] = [];
 
   // Wing slot cutout — only an enclosed hole for through-slot mounting.
+  // When wing has camber, arches upward with the wing's true mean camber line.
   // Saddle and parasol mounts glue directly to the surface, so we mark a
   // dashed glue-seat guide line instead of cutting through the sheet.
   const ws = fuselage.wingSlot;
-  const wAngleRad = (ws.angleDeg * Math.PI) / 180;
-  const cosW = Math.cos(wAngleRad);
-  const sinW = Math.sin(wAngleRad);
-  const halfThick = ws.thicknessMm / 2;
-
-  const wp0 = { x: ws.xPositionMm, y: ws.yPositionMm - halfThick };
-  const wp1 = { x: ws.xPositionMm + ws.lengthMm * cosW, y: ws.yPositionMm + ws.lengthMm * sinW - halfThick };
-  const wp2 = { x: ws.xPositionMm + ws.lengthMm * cosW, y: ws.yPositionMm + ws.lengthMm * sinW + halfThick };
-  const wp3 = { x: ws.xPositionMm, y: ws.yPositionMm + halfThick };
+  const wingSlotPoints = calculateSlotPoints(ws, glider.wing.rootChordMm, glider.wing.camberPercent);
 
   if (fuselage.mountType === 'through_slot') {
-    slotCutouts.push(pointsToPath([wp0, wp1, wp2, wp3]));
+    slotCutouts.push(pointsToPath(wingSlotPoints));
   } else if (fuselage.mountType === 'top_saddle' || fuselage.mountType === 'bottom_saddle') {
-    // Glue-seat guide: a dashed rectangle showing exactly where the wing root sits
-    scoreLines.push(pointsToPath([wp0, wp1, wp2, wp3]));
+    // Glue-seat guide: a dashed line showing exactly where the wing root sits
+    scoreLines.push(pointsToPath(wingSlotPoints));
   }
   // parasol_pylon: no mark on the fuselage itself — the pylon is its own flat part
   // (see generatePylonFlatPattern) and glues to the spine independently.
 
   // Tail slot cutout (tailplane always mounts via enclosed sliding slot)
   const ts = fuselage.tailSlot;
-  const tAngleRad = (ts.angleDeg * Math.PI) / 180;
-  const cosT = Math.cos(tAngleRad);
-  const sinT = Math.sin(tAngleRad);
-  const halfTailThick = ts.thicknessMm / 2;
+  const tailSlotPoints = calculateSlotPoints(ts);
 
-  const tp0 = { x: ts.xPositionMm, y: ts.yPositionMm - halfTailThick };
-  const tp1 = { x: ts.xPositionMm + ts.lengthMm * cosT, y: ts.yPositionMm + ts.lengthMm * sinT - halfTailThick };
-  const tp2 = { x: ts.xPositionMm + ts.lengthMm * cosT, y: ts.yPositionMm + ts.lengthMm * sinT + halfTailThick };
-  const tp3 = { x: ts.xPositionMm, y: ts.yPositionMm + halfTailThick };
-
-  slotCutouts.push(pointsToPath([tp0, tp1, tp2, tp3]));
+  slotCutouts.push(pointsToPath(tailSlotPoints));
 
   const bbox = calculateBoundingBox(points);
 

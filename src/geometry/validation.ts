@@ -1,5 +1,12 @@
 import { GliderDesign, GliderAeroReport, WingSlotConfig, TailSlotConfig } from '@/types/glider';
-import { Point2D, isPointInPolygon, calculateBoundingBox } from './core';
+import {
+  Point2D,
+  isPointInPolygon,
+  calculateBoundingBox,
+  sampleSmoothClosedCurve,
+  calculateSlotPoints,
+  getCamberElevation,
+} from './core';
 import { getFuselageProfilePoints } from '@/physics/massBalance';
 import { analyzeGliderStability } from '@/physics/stability';
 
@@ -99,7 +106,8 @@ export function validateGliderDesign(
 ): ValidationReport {
   const issues: ValidationIssue[] = [];
   const { fuselage, wing } = glider;
-  const fuselagePoints = getFuselageProfilePoints(glider);
+  const rawFuselagePoints = getFuselageProfilePoints(glider);
+  const fuselagePoints = rawFuselagePoints.length >= 3 ? sampleSmoothClosedCurve(rawFuselagePoints, 8) : rawFuselagePoints;
   const fuselageBBox = calculateBoundingBox(fuselagePoints);
   const aeroReport = providedAeroReport ?? analyzeGliderStability(glider);
 
@@ -108,7 +116,7 @@ export function validateGliderDesign(
   // -------------------------------------------------------------
 
   const ws = fuselage.wingSlot;
-  const wingSlotCorners = calculateSlotCorners(ws);
+  const wingSlotCorners = calculateSlotPoints(ws, wing.rootChordMm, wing.camberPercent);
   const wingSlotEndXMm = ws.xPositionMm + ws.lengthMm * Math.cos((ws.angleDeg * Math.PI) / 180);
 
   // 1A. Wing Slot Checks
@@ -165,9 +173,11 @@ export function validateGliderDesign(
     testXs.forEach((x) => {
       const bounds = getPolygonVerticalBoundsAtX(fuselagePoints, x);
       if (bounds) {
+        const chordFrac = Math.min(1, Math.max(0, (x - ws.xPositionMm) / (wing.rootChordMm || ws.lengthMm)));
+        const camb = getCamberElevation(chordFrac, wing.rootChordMm || ws.lengthMm, wing.camberPercent);
         const slotYAtX = ws.yPositionMm + (x - ws.xPositionMm) * Math.tan((ws.angleDeg * Math.PI) / 180);
-        const slotTopY = slotYAtX + ws.thicknessMm / 2;
-        const slotBottomY = slotYAtX - ws.thicknessMm / 2;
+        const slotTopY = slotYAtX + camb + ws.thicknessMm / 2;
+        const slotBottomY = slotYAtX + camb - ws.thicknessMm / 2;
 
         const upperWeb = bounds.maxY - slotTopY;
         const lowerWeb = slotBottomY - bounds.minY;

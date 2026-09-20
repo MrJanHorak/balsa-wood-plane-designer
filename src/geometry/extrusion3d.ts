@@ -1,7 +1,14 @@
 import * as THREE from 'three';
 import { GliderDesign, getEffectiveTipChordMm, getWingPlanformKind } from '@/types/glider';
 import { getFuselageProfilePoints } from '@/physics/massBalance';
-import { getWingStationAt } from '@/geometry/core';
+import {
+  getWingStationAt,
+  sampleSmoothClosedCurve,
+  calculateSlotPoints,
+  getCamberElevation,
+} from '@/geometry/core';
+
+export { getCamberElevation } from '@/geometry/core';
 
 /**
  * Creates procedural balsa wood grain texture using HTML Canvas
@@ -53,7 +60,8 @@ export function createBalsaWoodTexture(): THREE.CanvasTexture {
 }
 
 /**
- * Generates Three.js mesh for the Profile Fuselage with wing and tail slot cutouts
+ * Generates Three.js mesh for the Profile Fuselage with wing and tail slot cutouts.
+ * Uses the canonical smoothed Catmull-Rom curve matching the 2D cut pattern and editor.
  */
 export function createFuselageMesh(glider: GliderDesign, balsaMaterial: THREE.Material): THREE.Group {
   const group = new THREE.Group();
@@ -61,12 +69,13 @@ export function createFuselageMesh(glider: GliderDesign, balsaMaterial: THREE.Ma
 
   const { fuselage } = glider;
   const rawPoints = getFuselageProfilePoints(glider);
+  const contourPoints = rawPoints.length >= 3 ? sampleSmoothClosedCurve(rawPoints, 8) : rawPoints;
 
   const shape = new THREE.Shape();
-  if (rawPoints.length > 0) {
-    shape.moveTo(rawPoints[0].x, rawPoints[0].y);
-    for (let i = 1; i < rawPoints.length; i++) {
-      shape.lineTo(rawPoints[i].x, rawPoints[i].y);
+  if (contourPoints.length > 0) {
+    shape.moveTo(contourPoints[0].x, contourPoints[0].y);
+    for (let i = 1; i < contourPoints.length; i++) {
+      shape.lineTo(contourPoints[i].x, contourPoints[i].y);
     }
     shape.closePath();
   }
@@ -74,43 +83,24 @@ export function createFuselageMesh(glider: GliderDesign, balsaMaterial: THREE.Ma
   // Only add wing slot hole if mountType is through_slot
   if (fuselage.mountType === 'through_slot') {
     const ws = fuselage.wingSlot;
+    const wingSlotPoints = calculateSlotPoints(ws, glider.wing.rootChordMm, glider.wing.camberPercent);
     const wingSlotHole = new THREE.Path();
-    const wAngleRad = (ws.angleDeg * Math.PI) / 180;
-    const cosW = Math.cos(wAngleRad);
-    const sinW = Math.sin(wAngleRad);
-    const halfThick = ws.thicknessMm / 2;
-
-    // 4 corners of slot rotated by angle
-    const p0 = { x: ws.xPositionMm, y: ws.yPositionMm - halfThick };
-    const p1 = { x: ws.xPositionMm + ws.lengthMm * cosW, y: ws.yPositionMm + ws.lengthMm * sinW - halfThick };
-    const p2 = { x: ws.xPositionMm + ws.lengthMm * cosW, y: ws.yPositionMm + ws.lengthMm * sinW + halfThick };
-    const p3 = { x: ws.xPositionMm, y: ws.yPositionMm + halfThick };
-
-    wingSlotHole.moveTo(p0.x, p0.y);
-    wingSlotHole.lineTo(p1.x, p1.y);
-    wingSlotHole.lineTo(p2.x, p2.y);
-    wingSlotHole.lineTo(p3.x, p3.y);
+    wingSlotHole.moveTo(wingSlotPoints[0].x, wingSlotPoints[0].y);
+    for (let i = 1; i < wingSlotPoints.length; i++) {
+      wingSlotHole.lineTo(wingSlotPoints[i].x, wingSlotPoints[i].y);
+    }
     wingSlotHole.closePath();
     shape.holes.push(wingSlotHole);
   }
 
   // Create Tail Slot Hole
   const ts = fuselage.tailSlot;
+  const tailSlotPoints = calculateSlotPoints(ts);
   const tailSlotHole = new THREE.Path();
-  const tAngleRad = (ts.angleDeg * Math.PI) / 180;
-  const cosT = Math.cos(tAngleRad);
-  const sinT = Math.sin(tAngleRad);
-  const halfTailThick = ts.thicknessMm / 2;
-
-  const tp0 = { x: ts.xPositionMm, y: ts.yPositionMm - halfTailThick };
-  const tp1 = { x: ts.xPositionMm + ts.lengthMm * cosT, y: ts.yPositionMm + ts.lengthMm * sinT - halfTailThick };
-  const tp2 = { x: ts.xPositionMm + ts.lengthMm * cosT, y: ts.yPositionMm + ts.lengthMm * sinT + halfTailThick };
-  const tp3 = { x: ts.xPositionMm, y: ts.yPositionMm + halfTailThick };
-
-  tailSlotHole.moveTo(tp0.x, tp0.y);
-  tailSlotHole.lineTo(tp1.x, tp1.y);
-  tailSlotHole.lineTo(tp2.x, tp2.y);
-  tailSlotHole.lineTo(tp3.x, tp3.y);
+  tailSlotHole.moveTo(tailSlotPoints[0].x, tailSlotPoints[0].y);
+  for (let i = 1; i < tailSlotPoints.length; i++) {
+    tailSlotHole.lineTo(tailSlotPoints[i].x, tailSlotPoints[i].y);
+  }
   tailSlotHole.closePath();
   shape.holes.push(tailSlotHole);
 
@@ -163,22 +153,6 @@ export function createFuselageMesh(glider: GliderDesign, balsaMaterial: THREE.Ma
   return group;
 }
 
-/**
- * Computes aerodynamic mean camber line elevation for a normalized chord fraction s in [0, 1].
- * Uses NACA-style camber line with maximum camber at 40% chord (p = 0.4).
- * Returns height in mm.
- */
-export function getCamberElevation(s: number, chord: number, camberPercent: number): number {
-  if (camberPercent <= 0 || chord <= 0) return 0;
-  const clampedS = Math.max(0, Math.min(1, s));
-  const h = chord * (camberPercent / 100);
-  const p = 0.4;
-  if (clampedS <= p) {
-    return (h / (p * p)) * (2 * p * clampedS - clampedS * clampedS);
-  } else {
-    return (h / ((1 - p) * (1 - p))) * ((1 - 2 * p) + 2 * p * clampedS - clampedS * clampedS);
-  }
-}
 
 /**
  * Creates a 3D half-wing panel geometry with chordwise camber curvature and edge skirts.

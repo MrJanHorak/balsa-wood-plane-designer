@@ -5,6 +5,7 @@ import {
   polygonCentroid,
   calculateWingPlanformPoints,
   calculateTrapezoidPlanformPoints,
+  sampleSmoothClosedCurve,
 } from '@/geometry/core';
 
 /**
@@ -47,7 +48,7 @@ export function getFuselageProfilePoints(glider: GliderDesign): Point2D[] {
       { x: nosePeakX * 0.4, y: effectiveMaxHeight * 0.8 },
       { x: nosePeakX, y: effectiveMaxHeight },
       { x: wingX + wingLen * 0.5, y: Math.max(effectiveMaxHeight, slotTopY + 5) },
-      { x: lengthMm * 0.6, y: effectiveMaxHeight * 0.7 },
+      { x: Math.max(lengthMm * 0.6, wingX + wingLen + 10), y: Math.max(wingSlot.yPositionMm + 5, effectiveMaxHeight * 0.7) },
       { x: lengthMm * 0.85, y: tailBoomHeightMm * 1.5 },
       { x: lengthMm, y: tailBoomHeightMm },
       { x: lengthMm, y: 0 },
@@ -189,8 +190,10 @@ export function calculateGliderMassAndCG(glider: GliderDesign): {
   // Convert density: 1 kg/m³ = 1e-6 g/mm³
   const densityGPerMm3 = balsaDensityKgM3 * 1e-6;
 
-  // 1. Fuselage
-  const fusePoly = getFuselageProfilePoints(glider);
+  // 1. Fuselage — sampled on the smooth Catmull-Rom contour matching the 3D
+  // model and the 2D cut pattern, rather than a coarse polygon approximation.
+  const rawFusePoly = getFuselageProfilePoints(glider);
+  const fusePoly = rawFusePoly.length >= 3 ? sampleSmoothClosedCurve(rawFusePoly, 8) : rawFusePoly;
   const fuseAreaMm2 = polygonArea(fusePoly);
   const { x: fuseCx, y: fuseCy } = polygonCentroid(fusePoly);
   const fuseVolumeMm3 = fuseAreaMm2 * glider.fuselage.thicknessMm;
