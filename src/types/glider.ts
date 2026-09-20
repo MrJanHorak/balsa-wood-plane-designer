@@ -51,7 +51,15 @@ export interface FuselageConfig {
   customNodes?: FuselageNode[]; // Draggable control nodes for custom profile
 }
 
-export type WingPlanformType = 'tapered' | 'rectangular' | 'elliptical' | 'delta';
+export interface WingNode {
+  id: string;
+  label: string;
+  xMm: number; // Chordwise position (0 = root LE, rootChord = root TE)
+  yMm: number; // Spanwise position (0 = centerline joint, +halfSpan = tip)
+  isFixedRoot?: boolean; // Root LE (0,0) and root TE (cr,0) locked to centerline
+}
+
+export type WingPlanformType = 'tapered' | 'rectangular' | 'elliptical' | 'delta' | 'custom';
 
 export interface WingConfig {
   planformType: WingPlanformType;
@@ -64,6 +72,7 @@ export interface WingConfig {
   thicknessMm: number;        // Wing sheet thickness
   slotTabWidthMm: number;     // Width of center interlocking tab
   hasLeadingEdgeTaper: boolean;
+  customNodes?: WingNode[];   // Draggable half-wing control nodes for custom planform
 }
 
 /**
@@ -87,9 +96,10 @@ export function getEffectiveTipChordMm(wing: Pick<WingConfig, 'planformType' | '
  * Maps the app's user-facing planform vocabulary onto the canonical geometry
  * engine's shape kinds (src/geometry/core.ts). Rectangular/tapered/delta are
  * all straight-tapered trapezoids once their effective tip chord is resolved
- * (see getEffectiveTipChordMm) — only 'elliptical' needs curved sampling.
+ * (see getEffectiveTipChordMm) — only 'elliptical' and 'custom' need distinct handling.
  */
-export function getWingPlanformKind(planformType: WingPlanformType): 'straight' | 'elliptical' {
+export function getWingPlanformKind(planformType: WingPlanformType): 'straight' | 'elliptical' | 'custom' {
+  if (planformType === 'custom') return 'custom';
   return planformType === 'elliptical' ? 'elliptical' : 'straight';
 }
 

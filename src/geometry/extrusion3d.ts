@@ -191,7 +191,8 @@ export function createHalfWingGeometry(glider: GliderDesign): THREE.BufferGeomet
   // canonical geometry engine so this mesh can never silently diverge from
   // the 2D pattern export or physics area calculations.
   function getStationGeometry(t: number): { xLE: number; chord: number } {
-    return getWingStationAt(planformKind, cr, ct, wing.spanMm, wing.sweepDeg, t);
+    const customWingNodes = wing.customNodes?.map((n) => ({ x: n.xMm, y: n.yMm }));
+    return getWingStationAt(planformKind, cr, ct, wing.spanMm, wing.sweepDeg, t, customWingNodes);
   }
 
   // Build Upper and Lower grids

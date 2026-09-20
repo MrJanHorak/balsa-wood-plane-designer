@@ -203,12 +203,14 @@ export function calculateGliderMassAndCG(glider: GliderDesign): {
   // including elliptical wings, instead of always assuming a trapezoid)
   const effectiveTipChordMm = getEffectiveTipChordMm(glider.wing);
   const wingPlanformKind = getWingPlanformKind(glider.wing.planformType);
+  const customWingNodes = glider.wing.customNodes?.map((n) => ({ x: n.xMm, y: n.yMm }));
   const wingPoints = calculateWingPlanformPoints(
     wingPlanformKind,
     glider.wing.rootChordMm,
     effectiveTipChordMm,
     glider.wing.spanMm,
-    glider.wing.sweepDeg
+    glider.wing.sweepDeg,
+    customWingNodes
   );
   const wingAreaMm2 = polygonArea(wingPoints);
   const wingLocalCentroid = polygonCentroid(wingPoints);

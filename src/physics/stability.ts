@@ -25,12 +25,14 @@ export function analyzeGliderStability(glider: GliderDesign): GliderAeroReport {
   // wing area, wing loading, and stall/glide estimates can never silently
   // disagree with what the wing was actually weighed as. MAC and AC position
   // remain the documented trapezoid approximation (see core.ts).
+  const customWingNodes = glider.wing.customNodes?.map((n) => ({ x: n.xMm, y: n.yMm }));
   const wingPlanformPoints = calculateWingPlanformPoints(
     getWingPlanformKind(glider.wing.planformType),
     glider.wing.rootChordMm,
     getEffectiveTipChordMm(glider.wing),
     glider.wing.spanMm,
-    glider.wing.sweepDeg
+    glider.wing.sweepDeg,
+    customWingNodes
   );
   const trueWingAreaMm2 = polygonArea(wingPlanformPoints);
   wingAero.areaMm2 = trueWingAreaMm2;

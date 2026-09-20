@@ -114,7 +114,15 @@ export function generateWingFlatPattern(glider: GliderDesign): FlatPartSvg {
   const cr = wing.rootChordMm;
   const ct = getEffectiveTipChordMm(wing);
 
-  const points = calculateWingPlanformPoints(getWingPlanformKind(wing.planformType), cr, ct, wing.spanMm, wing.sweepDeg);
+  const customWingNodes = wing.customNodes?.map((n) => ({ x: n.xMm, y: n.yMm }));
+  const points = calculateWingPlanformPoints(
+    getWingPlanformKind(wing.planformType),
+    cr,
+    ct,
+    wing.spanMm,
+    wing.sweepDeg,
+    customWingNodes
+  );
   const bbox = calculateBoundingBox(points);
 
   // Center Score Line along root chord (for bending dihedral angle)

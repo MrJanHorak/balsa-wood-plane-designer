@@ -16,7 +16,7 @@ export interface Point2D {
   y: number;
 }
 
-export type WingPlanformKind = 'straight' | 'elliptical';
+export type WingPlanformKind = 'straight' | 'elliptical' | 'custom';
 
 /**
  * Builds a smooth, closed SVG path through a sequence of points using a
@@ -368,17 +368,106 @@ export function calculateTrapezoidPlanformPoints(
  * formula as `calculateEllipticalPlanformPoints`, which that function now
  * calls this to compute, so the two can never drift apart.
  */
+/**
+ * Linearly interpolates the X position along a piecewise-linear path of 2D points at given Y coordinate.
+ */
+function interpolateXAtY(points: Point2D[], targetY: number, defaultX: number): number {
+  if (points.length === 0) return defaultX;
+  if (points.length === 1) return points[0].x;
+
+  for (let i = 0; i < points.length - 1; i++) {
+    const p1 = points[i];
+    const p2 = points[i + 1];
+    const minY = Math.min(p1.y, p2.y);
+    const maxY = Math.max(p1.y, p2.y);
+
+    if (targetY >= minY - 0.001 && targetY <= maxY + 0.001) {
+      if (Math.abs(p2.y - p1.y) < 0.0001) {
+        return p1.x;
+      }
+      const frac = (targetY - p1.y) / (p2.y - p1.y);
+      return p1.x + frac * (p2.x - p1.x);
+    }
+  }
+
+  const first = points[0];
+  const last = points[points.length - 1];
+  if (Math.abs(targetY - first.y) < Math.abs(targetY - last.y)) {
+    return first.x;
+  }
+  return last.x;
+}
+
+/**
+ * Generates the full symmetric planform outline from half-wing control nodes.
+ * The input `halfNodes` specifies the right half-wing points in order:
+ * root LE (0,0) -> leading edge points -> tip LE -> tip TE -> trailing edge points -> root TE (cr,0).
+ *
+ * Symmetrically mirrors across the centerline (Y = 0) to produce the complete
+ * 2D wing outline.
+ */
+export function calculateCustomWingPlanformPoints(halfNodes: Point2D[]): Point2D[] {
+  if (halfNodes.length < 3) return halfNodes;
+
+  // Right wing panel (y >= 0)
+  const rightHalf = halfNodes.map((p) => ({ x: p.x, y: Math.max(0, p.y) }));
+  // Left wing panel (y <= 0), mirrored across Y=0 in reverse order
+  const leftHalf = [...rightHalf]
+    .reverse()
+    .slice(1, -1)
+    .map((p) => ({ x: p.x, y: -p.y }));
+
+  return [...rightHalf, ...leftHalf];
+}
+
+/**
+ * Returns the leading edge X position and chord at span fraction `t` in [0, 1]
+ * (where 0 = root, 1 = tip). Any consumer that needs the shape of a wing
+ * planform at an arbitrary span fraction (e.g. a subdivided 3D mesh)
+ * should call this rather than re-deriving it.
+ */
 export function getWingStationAt(
   kind: WingPlanformKind,
   rootChordMm: number,
   effectiveTipChordMm: number,
   spanMm: number,
   sweepDeg: number,
-  t: number
+  t: number,
+  customNodes?: Point2D[]
 ): { xLE: number; chord: number } {
   const halfSpan = spanMm / 2;
   const sweepRad = (sweepDeg * Math.PI) / 180;
   const clampedT = Math.max(0, Math.min(1, t));
+
+  if (kind === 'custom' && customNodes && customNodes.length >= 3) {
+    const maxSpan = Math.max(...customNodes.map((p) => p.y));
+    if (maxSpan > 1) {
+      // Find wingtip index
+      let tipLEIndex = 0;
+      let tipTEIndex = customNodes.length - 1;
+      for (let i = 0; i < customNodes.length; i++) {
+        if (customNodes[i].y >= maxSpan - 0.05) {
+          tipLEIndex = i;
+          break;
+        }
+      }
+      for (let i = customNodes.length - 1; i >= 0; i--) {
+        if (customNodes[i].y >= maxSpan - 0.05) {
+          tipTEIndex = i;
+          break;
+        }
+      }
+
+      const lePoints = customNodes.slice(0, tipLEIndex + 1);
+      const tePoints = customNodes.slice(tipTEIndex);
+      const targetY = clampedT * maxSpan;
+
+      const xLE = interpolateXAtY(lePoints, targetY, 0);
+      const xTE = interpolateXAtY(tePoints, targetY, rootChordMm);
+      const chord = Math.max(2.0, xTE - xLE);
+      return { xLE, chord };
+    }
+  }
 
   if (kind === 'elliptical') {
     const ellipseFactor = Math.sqrt(Math.max(0, 1 - clampedT * clampedT));
@@ -395,9 +484,7 @@ export function getWingStationAt(
 
 /**
  * Full symmetric planform outline for an elliptical wing, sampled as a
- * closed polygon. `tipChordMm` sets a minimum chord floor at the very tip
- * (a true ellipse tapers to zero, which isn't manufacturable/renderable as
- * a solid sheet edge) rather than shaping the curve.
+ * closed polygon.
  */
 export function calculateEllipticalPlanformPoints(
   rootChordMm: number,
@@ -429,19 +516,19 @@ export function calculateEllipticalPlanformPoints(
 /**
  * Canonical wing/tail/fin planform outline dispatcher — the single function
  * every consumer (3D renderer, 2D pattern exporter, physics engine) should
- * call to get "the shape of this surface." Takes already-resolved numeric
- * chords (callers resolve app-specific rules like a rectangular wing's tip
- * chord equaling its root chord, or a delta wing's point-tip, before calling
- * this — see `getEffectiveTipChordMm` in types/glider.ts) so this module
- * stays free of app-specific policy.
+ * call to get "the shape of this surface."
  */
 export function calculateWingPlanformPoints(
   kind: WingPlanformKind,
   rootChordMm: number,
   effectiveTipChordMm: number,
   spanMm: number,
-  sweepDeg: number
+  sweepDeg: number,
+  customNodes?: Point2D[]
 ): Point2D[] {
+  if (kind === 'custom' && customNodes && customNodes.length >= 3) {
+    return calculateCustomWingPlanformPoints(customNodes);
+  }
   return kind === 'elliptical'
     ? calculateEllipticalPlanformPoints(rootChordMm, effectiveTipChordMm, spanMm, sweepDeg)
     : calculateTrapezoidPlanformPoints(rootChordMm, effectiveTipChordMm, spanMm, sweepDeg);
