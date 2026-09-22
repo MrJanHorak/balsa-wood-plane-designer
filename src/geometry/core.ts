@@ -505,12 +505,7 @@ export function calculateEllipticalPlanformPoints(
     tePoints.push({ x: xLE + chord, y: t * halfSpan });
   }
 
-  return [
-    ...lePoints,
-    ...[...tePoints].reverse(),
-    ...[...lePoints].reverse().slice(1).map((p) => ({ x: p.x, y: -p.y })),
-    ...tePoints.slice(1).map((p) => ({ x: p.x, y: -p.y })),
-  ];
+  return calculateCustomWingPlanformPoints([...lePoints, ...tePoints.reverse()]);
 }
 
 /**

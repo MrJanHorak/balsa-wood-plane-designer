@@ -13,6 +13,7 @@ import {
   createWingMesh,
 } from '@/geometry/extrusion3d';
 import { AeroGizmos3D } from './AeroGizmos3d';
+import { fitCameraToModel } from './fitCamera';
 import { Eye, RotateCcw, Grid, Crosshair, Box } from 'lucide-react';
 
 interface Glider3DViewportProps {
@@ -43,25 +44,16 @@ export const Glider3DViewport: React.FC<Glider3DViewportProps> = ({ glider, aero
     if (!cameraRef.current || !controlsRef.current) return;
     const camera = cameraRef.current;
     const controls = controlsRef.current;
-    const cg = new THREE.Vector3(aeroReport.cgXMm, aeroReport.cgYMm, 0);
-
-    controls.target.copy(cg);
-    const dist = Math.max(glider.wing.spanMm, glider.fuselage.lengthMm) * 1.3;
-
-    if (view === 'perspective') {
-      camera.position.set(cg.x - dist * 0.7, cg.y + dist * 0.5, dist * 0.8);
-    } else if (view === 'top') {
-      camera.position.set(cg.x, cg.y + dist * 1.4, 0.01);
-    } else if (view === 'side') {
-      camera.position.set(cg.x, cg.y, dist * 1.2);
-    } else if (view === 'front') {
-      camera.position.set(cg.x - dist * 1.3, cg.y, 0);
+    const direction = view === 'perspective' ? new THREE.Vector3(-0.7, 0.5, 0.8)
+      : view === 'top' ? new THREE.Vector3(0, 1, 0.0001)
+      : view === 'side' ? new THREE.Vector3(0, 0, 1) : new THREE.Vector3(-1, 0, 0);
+    if (modelGroupRef.current) {
+      const distance = fitCameraToModel(camera, modelGroupRef.current, controls.target, direction);
+      controls.maxDistance = Math.max(1200, distance * 4);
     }
-
-    camera.lookAt(cg);
     controls.update();
     setCurrentView(view);
-  }, [aeroReport.cgXMm, aeroReport.cgYMm, glider.wing.spanMm, glider.fuselage.lengthMm]);
+  }, []);
 
   // Initialize Three.js Scene
   useEffect(() => {
@@ -167,6 +159,11 @@ export const Glider3DViewport: React.FC<Glider3DViewportProps> = ({ glider, aero
       camera.aspect = w / h;
       camera.updateProjectionMatrix();
       renderer.setSize(w, h);
+      if (modelGroupRef.current) {
+        const distance = fitCameraToModel(camera, modelGroupRef.current, controls.target);
+        controls.maxDistance = Math.max(1200, distance * 4);
+        controls.update();
+      }
     };
 
     const resizeObserver = new ResizeObserver(handleResize);
@@ -227,6 +224,15 @@ export const Glider3DViewport: React.FC<Glider3DViewportProps> = ({ glider, aero
       gizmosRef.current.update(aeroReport, showAeroCenters);
     }
   }, [glider, aeroReport, isWireframe, showGizmos, showAeroCenters]);
+
+  // Refit after dimensional edits while preserving the viewing direction.
+  useEffect(() => {
+    if (cameraRef.current && controlsRef.current && modelGroupRef.current) {
+      const distance = fitCameraToModel(cameraRef.current, modelGroupRef.current, controlsRef.current.target);
+      controlsRef.current.maxDistance = Math.max(1200, distance * 4);
+      controlsRef.current.update();
+    }
+  }, [glider]);
 
   // Update Grid Visibility
   useEffect(() => {

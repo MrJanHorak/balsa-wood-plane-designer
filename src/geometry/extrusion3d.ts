@@ -1,4 +1,6 @@
 import * as THREE from 'three';
+import { getTailPlanformPoints, seedWingNodes } from './customWing';
+import { subtractSheetCutouts } from './sheetCutouts';
 import { GliderDesign, getEffectiveTipChordMm, getWingPlanformKind } from '@/types/glider';
 import { getFuselageProfilePoints } from '@/physics/massBalance';
 import {
@@ -71,49 +73,23 @@ export function createFuselageMesh(glider: GliderDesign, balsaMaterial: THREE.Ma
   const rawPoints = getFuselageProfilePoints(glider);
   const contourPoints = rawPoints.length >= 3 ? sampleSmoothClosedCurve(rawPoints, 8) : rawPoints;
 
-  const shape = new THREE.Shape();
-  if (contourPoints.length > 0) {
-    shape.moveTo(contourPoints[0].x, contourPoints[0].y);
-    for (let i = 1; i < contourPoints.length; i++) {
-      shape.lineTo(contourPoints[i].x, contourPoints[i].y);
-    }
-    shape.closePath();
-  }
-
-  // Only add wing slot hole if mountType is through_slot
+  const cuts = [calculateSlotPoints(fuselage.tailSlot)];
   if (fuselage.mountType === 'through_slot') {
-    const ws = fuselage.wingSlot;
-    const wingSlotPoints = calculateSlotPoints(ws, glider.wing.rootChordMm, glider.wing.camberPercent);
-    const wingSlotHole = new THREE.Path();
-    wingSlotHole.moveTo(wingSlotPoints[0].x, wingSlotPoints[0].y);
-    for (let i = 1; i < wingSlotPoints.length; i++) {
-      wingSlotHole.lineTo(wingSlotPoints[i].x, wingSlotPoints[i].y);
-    }
-    wingSlotHole.closePath();
-    shape.holes.push(wingSlotHole);
+    cuts.push(calculateSlotPoints(fuselage.wingSlot, glider.wing.rootChordMm, glider.wing.camberPercent));
   }
-
-  // Create Tail Slot Hole
-  const ts = fuselage.tailSlot;
-  const tailSlotPoints = calculateSlotPoints(ts);
-  const tailSlotHole = new THREE.Path();
-  tailSlotHole.moveTo(tailSlotPoints[0].x, tailSlotPoints[0].y);
-  for (let i = 1; i < tailSlotPoints.length; i++) {
-    tailSlotHole.lineTo(tailSlotPoints[i].x, tailSlotPoints[i].y);
-  }
-  tailSlotHole.closePath();
-  shape.holes.push(tailSlotHole);
+  const shapes = subtractSheetCutouts(contourPoints, cuts).map(region => {
+    const shape = new THREE.Shape(region.outline.map(p => new THREE.Vector2(p.x, p.y)));
+    shape.holes = region.holes.map(hole => new THREE.Path(hole.map(p => new THREE.Vector2(p.x, p.y))));
+    return shape;
+  });
 
   const extrudeSettings: THREE.ExtrudeGeometryOptions = {
     depth: fuselage.thicknessMm,
-    bevelEnabled: true,
-    bevelSegments: 2,
+    bevelEnabled: false,
     steps: 1,
-    bevelSize: 0.3,
-    bevelThickness: 0.3,
   };
 
-  const geometry = new THREE.ExtrudeGeometry(shape, extrudeSettings);
+  const geometry = new THREE.ExtrudeGeometry(shapes, extrudeSettings);
   // Center extrusion around Z = 0
   geometry.translate(0, 0, -fuselage.thicknessMm / 2);
 
@@ -164,7 +140,8 @@ export function createHalfWingGeometry(glider: GliderDesign): THREE.BufferGeomet
   const cr = wing.rootChordMm;
   const ct = getEffectiveTipChordMm(wing);
   const halfSpan = wing.spanMm / 2;
-  const planformKind = getWingPlanformKind(wing.planformType);
+  const planformKind = wing.planformType === 'elliptical' ? 'custom' : getWingPlanformKind(wing.planformType);
+  const surfaceNodes = planformKind === 'custom' ? seedWingNodes(wing).map(n => ({ x: n.xMm, y: n.yMm })) : undefined;
   const thickness = wing.thicknessMm;
   const camberPercent = wing.camberPercent;
 
@@ -172,7 +149,7 @@ export function createHalfWingGeometry(glider: GliderDesign): THREE.BufferGeomet
   // Include every custom corner so sharp sweep changes match the cutting pattern.
   const spanStations = [...new Set([
     ...Array.from({ length: 25 }, (_, i) => i / 24),
-    ...(wing.planformType === 'custom' ? (wing.customNodes ?? []).map(n => n.yMm / halfSpan) : []),
+    ...(surfaceNodes ?? []).map(n => n.y / halfSpan),
   ])].sort((a, b) => a - b);
   const M = spanStations.length - 1;
 
@@ -196,8 +173,7 @@ export function createHalfWingGeometry(glider: GliderDesign): THREE.BufferGeomet
   // canonical geometry engine so this mesh can never silently diverge from
   // the 2D pattern export or physics area calculations.
   function getStationGeometry(t: number): { xLE: number; chord: number } {
-    const customWingNodes = wing.customNodes?.map((n) => ({ x: n.xMm, y: n.yMm }));
-    return getWingStationAt(planformKind, cr, ct, wing.spanMm, wing.sweepDeg, t, customWingNodes);
+    return getWingStationAt(planformKind, cr, ct, wing.spanMm, wing.sweepDeg, t, surfaceNodes);
   }
 
   // Build Upper and Lower grids
@@ -461,28 +437,15 @@ export function createTailMesh(glider: GliderDesign, balsaMaterial: THREE.Materi
   tailGroup.name = 'tail_assembly';
 
   const { horizontalStabilizer: tail, fuselage } = glider;
-  const halfSpan = tail.spanMm / 2;
-  const cr = tail.rootChordMm;
-  const ct = tail.tipChordMm;
-  const sweepRad = (tail.sweepDeg * Math.PI) / 180;
-  const tipSweepOffset = halfSpan * Math.tan(sweepRad);
-
+  const points = getTailPlanformPoints(tail);
   const shape = new THREE.Shape();
-  // Symmetric planform (left tip -> root -> right tip)
-  shape.moveTo(tipSweepOffset, -halfSpan);
-  shape.lineTo(tipSweepOffset + ct, -halfSpan);
-  shape.lineTo(cr, 0);
-  shape.lineTo(tipSweepOffset + ct, halfSpan);
-  shape.lineTo(tipSweepOffset, halfSpan);
-  shape.lineTo(0, 0);
+  shape.moveTo(points[0].x, points[0].y);
+  for (const point of points.slice(1)) shape.lineTo(point.x, point.y);
   shape.closePath();
 
   const extrudeSettings: THREE.ExtrudeGeometryOptions = {
     depth: tail.thicknessMm,
-    bevelEnabled: true,
-    bevelSegments: 1,
-    bevelSize: 0.2,
-    bevelThickness: 0.2,
+    bevelEnabled: false,
   };
 
   const geom = new THREE.ExtrudeGeometry(shape, extrudeSettings);

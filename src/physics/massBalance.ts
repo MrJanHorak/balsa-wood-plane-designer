@@ -1,4 +1,5 @@
 import { GliderDesign, GliderMassBreakdown, getEffectiveTipChordMm, getWingPlanformKind } from '@/types/glider';
+import { getTailPlanformPoints } from '@/geometry/customWing';
 import {
   Point2D,
   polygonArea,
@@ -222,13 +223,8 @@ export function calculateGliderMassAndCG(glider: GliderDesign): {
   const wingCx = glider.fuselage.wingSlot.xPositionMm + wingLocalCentroid.x;
   const wingCy = glider.fuselage.wingSlot.yPositionMm;
 
-  // 3. Tail (Horizontal Stabilizer) — always a straight taper
-  const tailPoints = calculateTrapezoidPlanformPoints(
-    glider.horizontalStabilizer.rootChordMm,
-    glider.horizontalStabilizer.tipChordMm,
-    glider.horizontalStabilizer.spanMm,
-    glider.horizontalStabilizer.sweepDeg
-  );
+  // 3. Tail — the same outline used for rendering, cutting, and aerodynamics.
+  const tailPoints = getTailPlanformPoints(glider.horizontalStabilizer);
   const tailAreaMm2 = polygonArea(tailPoints);
   const tailLocalCentroid = polygonCentroid(tailPoints);
   const tailVolumeMm3 = tailAreaMm2 * glider.horizontalStabilizer.thicknessMm;

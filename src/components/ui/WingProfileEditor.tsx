@@ -2,13 +2,21 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import { GliderDesign, WingConfig, WingNode } from '@/types/glider';
-import { seedWingNodes, validateCustomWing } from '@/geometry/customWing';
+import { seedWingNodes, validateCustomWing, tailAsWing, wingAsTail } from '@/geometry/customWing';
 import { calculateCustomWingPlanformPoints, pointsToPath, polygonArea } from '@/geometry/core';
 
-interface Props { glider: GliderDesign; onChange: (design: GliderDesign) => void; onClose: () => void }
+interface Props { glider: GliderDesign; onChange: (design: GliderDesign) => void; onClose: () => void; surface?: 'wing' | 'tail' }
 const button = 'rounded border border-slate-600 px-3 py-1.5 text-xs hover:bg-slate-700 disabled:opacity-30';
 
-export function WingProfileEditor({ glider, onChange, onClose }: Props) {
+export function WingProfileEditor({ glider, onChange, onClose, surface = 'wing' }: Props) {
+  if (surface === 'tail') return <SurfaceProfileEditor key="tail" surface="tail"
+    glider={{ ...glider, wing: tailAsWing(glider.horizontalStabilizer) }} onClose={onClose}
+    onChange={next => onChange({ ...glider, horizontalStabilizer: wingAsTail(next.wing) })} />;
+  return <SurfaceProfileEditor key="wing" glider={glider} onChange={onChange} onClose={onClose} surface="wing" />;
+}
+
+function SurfaceProfileEditor({ glider, onChange, onClose, surface = 'wing' }: Props) {
+  const surfaceName = surface === 'tail' ? 'Horizontal Tail' : 'Wing';
   const [nodes, setNodes] = useState(() => seedWingNodes(glider.wing));
   const [history, setHistory] = useState<WingConfig[]>([]);
   const [future, setFuture] = useState<WingConfig[]>([]);
@@ -38,7 +46,7 @@ export function WingProfileEditor({ glider, onChange, onClose }: Props) {
     const tips = next.filter(n => Math.abs(n.yMm - tipY) < 1e-6);
     const wing: WingConfig = { ...currentWing.current, planformType: 'custom', customNodes: next, tipChordMm: tips.length === 2 ? tips[1].xMm - tips[0].xMm : glider.wing.tipChordMm };
     const problem = validateCustomWing(wing);
-    if (problem) { setError(problem); return; }
+    if (problem) { setError(surface === 'tail' ? problem.replace(/wing/gi, 'tail') : problem); return; }
     const before = currentWing.current;
     if (remember) { setHistory(h => [...h, before]); setFuture([]); }
     publish(wing);
@@ -101,20 +109,20 @@ export function WingProfileEditor({ glider, onChange, onClose }: Props) {
   return <div className="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-sm flex items-center justify-center p-4">
     <div ref={dialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="wing-editor-title" onKeyDown={keyDown} className="w-full max-w-5xl h-[85vh] bg-slate-900 border border-slate-700 rounded-xl flex flex-col overflow-hidden text-slate-100">
       <div className="flex items-center justify-between p-4 border-b border-slate-700">
-        <div><h2 id="wing-editor-title" className="font-semibold">Custom Wing Shape Designer</h2><p className="text-xs text-slate-400">Edit the right panel; the left mirrors automatically. Click + to add an edge point.</p></div>
+        <div><h2 id="wing-editor-title" className="font-semibold">Custom {surfaceName} Shape Designer</h2><p className="text-xs text-slate-400">Edit the right panel; the left mirrors automatically. Click + to add an edge point.</p></div>
         <button className={button} onClick={onClose}>Done</button>
       </div>
       <div className="flex flex-wrap items-center gap-2 p-3 border-b border-slate-700">
         <button className={button} disabled={!history.length} onClick={undo}>Undo</button>
         <button className={button} disabled={!future.length} onClick={redo}>Redo</button>
         <button className={button} disabled={!selectedNode || protectedNode(selectedNode)} onClick={remove}>Delete point</button>
-        <label className="text-xs ml-auto">Reset shape <select aria-label="Reset wing shape" value="" className="bg-slate-800 p-2 rounded" onChange={e => {
+        <label className="text-xs ml-auto">Reset shape <select aria-label={`Reset ${surface} shape`} value="" className="bg-slate-800 p-2 rounded" onChange={e => {
           const wing = { ...glider.wing, planformType: e.target.value as WingConfig['planformType'], customNodes: undefined };
           const before = currentWing.current;
           setHistory(h => [...h, before]); setFuture([]); setSelected(null); publish(wing);
         }}><option value="" disabled>Choose…</option>{['tapered', 'rectangular', 'elliptical', 'delta'].map(s => <option key={s} value={s}>{s}</option>)}</select></label>
       </div>
-      <svg ref={svgRef} aria-label="Wing outline; editable right panel" viewBox={`${-bounds.span / 2} ${bounds.min} ${bounds.span} ${bounds.width}`} className="flex-1 min-h-0 w-full touch-none bg-slate-950/50" onPointerMove={move} onPointerUp={finishDrag} onPointerCancel={() => { if (drag.current) publish(drag.current.before); drag.current = null; }}>
+      <svg ref={svgRef} aria-label={`${surfaceName} outline; editable right panel`} viewBox={`${-bounds.span / 2} ${bounds.min} ${bounds.span} ${bounds.width}`} className="flex-1 min-h-0 w-full touch-none bg-slate-950/50" onPointerMove={move} onPointerUp={finishDrag} onPointerCancel={() => { if (drag.current) publish(drag.current.before); drag.current = null; }}>
         <path d={halfPath} transform="scale(-1,1)" fill="#164e6333" stroke="#64748b" strokeWidth={1} strokeDasharray="4 3" />
         <path d={halfPath} fill="#0891b233" stroke="#22d3ee" strokeWidth={1} />
         <rect x={-glider.fuselage.thicknessMm / 2} y={0} width={glider.fuselage.thicknessMm} height={glider.wing.rootChordMm} fill="#fbbf2444" />

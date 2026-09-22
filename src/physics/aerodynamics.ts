@@ -1,9 +1,13 @@
-import { GliderDesign } from '@/types/glider';
+import { GliderDesign, WingConfig } from '@/types/glider';
 import { getWingStationAt } from '@/geometry/core';
 
 /** Integrate piecewise-linear custom chords; quarter-chord AC remains a low-order aerodynamic estimate. */
 export function computeCustomWingAerodynamics(glider: GliderDesign): WingAeroGeometry {
   const { wing, fuselage } = glider;
+  return computeCustomSurfaceAerodynamics(wing, fuselage.wingSlot.xPositionMm, fuselage.wingSlot.yPositionMm);
+}
+
+export function computeCustomSurfaceAerodynamics(wing: WingConfig, slotXMm: number, slotYMm: number): WingAeroGeometry {
   const points = wing.customNodes!.map(n => ({ x: n.xMm, y: n.yMm }));
   const stations = [...new Set(points.map(n => n.y))].sort((a, b) => a - b);
   let area = 0, chordSquared = 0, quarterChordMoment = 0, spanMoment = 0;
@@ -20,8 +24,8 @@ export function computeCustomWingAerodynamics(glider: GliderDesign): WingAeroGeo
   const areaMm2 = 2 * area;
   const aspectRatio = wing.spanMm ** 2 / areaMm2;
   return { areaMm2, areaDm2: areaMm2 / 10000, aspectRatio, macMm: chordSquared / area,
-    macYOffsetMm: spanMoment / area, acXMm: fuselage.wingSlot.xPositionMm + quarterChordMoment / area,
-    acYMm: fuselage.wingSlot.yPositionMm, cLAlphaPerRad: 2 * Math.PI / (1 + 2 / Math.max(1, aspectRatio)) };
+    macYOffsetMm: spanMoment / area, acXMm: slotXMm + quarterChordMoment / area,
+    acYMm: slotYMm, cLAlphaPerRad: 2 * Math.PI / (1 + 2 / Math.max(1, aspectRatio)) };
 }
 
 export interface WingAeroGeometry {

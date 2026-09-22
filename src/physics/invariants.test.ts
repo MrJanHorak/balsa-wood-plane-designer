@@ -4,7 +4,7 @@ import { GliderDesign, getEffectiveTipChordMm, getWingPlanformKind } from '@/typ
 import { calculateGliderMassAndCG, getFuselageProfilePoints } from './massBalance';
 import { analyzeGliderStability } from './stability';
 import { generateWingFlatPattern, generateFuselageFlatPattern } from '@/geometry/patterns2d';
-import { polygonArea, calculateWingPlanformPoints } from '@/geometry/core';
+import { polygonArea, calculateWingPlanformPoints, sampleSmoothClosedCurve } from '@/geometry/core';
 
 const presets = Object.values(GLIDER_PRESETS);
 
@@ -55,11 +55,11 @@ describe('canonical geometry invariants (cross-system agreement)', () => {
         expect(cgXMm).toBeLessThan(preset.fuselage.lengthMm);
       });
 
-      it('never leaves the wing floating outside the fuselage silhouette bounds it needs to meet', () => {
-        const fuselagePoints = getFuselageProfilePoints(preset);
+      it('sizes the cut sheet for the smoothed fuselage rather than its control points', () => {
+        const fuselagePoints = sampleSmoothClosedCurve(getFuselageProfilePoints(preset), 8);
         const fuselageBox = generateFuselageFlatPattern(preset).boundingBox;
-        // The fuselage's own generated points must be the same ones the 2D
-        // exporter measured — i.e. no second, independent fuselage shape exists.
+        // Smoothing can extend beyond the control nodes; those extrema must
+        // fit the sheet too, without clipping the exported cut contour.
         const rawMinY = Math.min(...fuselagePoints.map((p) => p.y));
         const rawMaxY = Math.max(...fuselagePoints.map((p) => p.y));
         expect(fuselageBox.minY).toBeCloseTo(rawMinY);

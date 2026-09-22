@@ -104,6 +104,8 @@ export function getWingPlanformKind(planformType: WingPlanformType): 'straight' 
 }
 
 export interface TailConfig {
+  planformType?: WingPlanformType; // Older documents default to tapered.
+  customNodes?: WingNode[];
   spanMm: number;             // Horizontal stabilizer span
   rootChordMm: number;        // Root chord
   tipChordMm: number;         // Tip chord

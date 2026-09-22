@@ -5,7 +5,7 @@ import { GliderDesign, UIMode, WingMountType, WingPlanformType } from '@/types/g
 import { SliderInput } from '@/components/common/SliderInput';
 import { Plane, Sliders, Shield, Weight, PenTool } from 'lucide-react';
 import { scalePointsAboutOrigin } from '@/geometry/core';
-import { resizeWing } from '@/geometry/customWing';
+import { resizeWing, tailAsWing, wingAsTail } from '@/geometry/customWing';
 
 const MOUNT_TYPE_OPTIONS: { value: WingMountType; label: string; simpleLabel: string; defaultY: (maxH: number) => number }[] = [
   { value: 'through_slot', label: 'Through-Slot', simpleLabel: 'Wing Through Body', defaultY: (maxH) => maxH * 0.6 },
@@ -27,6 +27,7 @@ interface ParametricControlsProps {
   onChange: (updated: GliderDesign) => void;
   onOpenCustomShapeEditor?: () => void;
   onOpenWingEditor?: () => void;
+  onOpenTailEditor?: () => void;
 }
 
 export const ParametricControls: React.FC<ParametricControlsProps> = ({
@@ -35,6 +36,7 @@ export const ParametricControls: React.FC<ParametricControlsProps> = ({
   onChange,
   onOpenCustomShapeEditor,
   onOpenWingEditor,
+  onOpenTailEditor,
 }) => {
   const isSimple = mode === 'simple';
   const [activeSection, setActiveSection] = useState<'wing' | 'fuse' | 'tail' | 'ballast'>('wing');
@@ -98,7 +100,10 @@ export const ParametricControls: React.FC<ParametricControlsProps> = ({
   const updateTail = (fields: Partial<GliderDesign['horizontalStabilizer']>) => {
     onChange({
       ...glider,
-      horizontalStabilizer: { ...glider.horizontalStabilizer, ...fields },
+      horizontalStabilizer: wingAsTail(resizeWing(tailAsWing(glider.horizontalStabilizer), fields)),
+      fuselage: fields.rootChordMm === undefined ? glider.fuselage : {
+        ...glider.fuselage, tailSlot: { ...glider.fuselage.tailSlot, lengthMm: fields.rootChordMm },
+      },
     });
   };
 
@@ -411,6 +416,9 @@ export const ParametricControls: React.FC<ParametricControlsProps> = ({
         {/* 3. Tail (Empennage) Section */}
         {activeSection === 'tail' && (
           <div>
+            <button onClick={onOpenTailEditor} className="w-full mb-3 flex items-center justify-center gap-2 rounded-lg border border-cyan-700 bg-cyan-950/40 p-2 text-xs text-cyan-200 hover:bg-cyan-900/50">
+              <PenTool className="w-4 h-4" />{glider.horizontalStabilizer.planformType === 'custom' ? 'Edit Custom Tail Shape' : 'Design Your Own Tail Shape'}
+            </button>
             <SliderInput
               label="Horizontal Tail Span (b_t)"
               simpleLabel="Tail Width"

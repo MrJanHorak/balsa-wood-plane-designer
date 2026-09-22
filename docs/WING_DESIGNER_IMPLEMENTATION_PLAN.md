@@ -14,7 +14,7 @@ tip-chord sliders are hidden in custom mode because the outline defines them.
 Validation requires two tip nodes, ordered edges that never fold back, and at least
 2 mm of chord. Invalid edits are rejected without changing the design; malformed
 custom-node imports are rejected at the document boundary. This is a symmetric
-planform editor, not a polyhedral/variable-dihedral or horizontal-tail editor.
+planform editor; polyhedral/variable-dihedral editing is not supported.
 
 Custom-wing area, MAC, spanwise centroid, and area-weighted quarter-chord location
 are integrated over the piecewise-linear outline. Aerodynamic-center and stability
@@ -27,8 +27,20 @@ the four existing unused-variable warnings. Browser checks cover insertion, drag
 numeric edits, invalid-edge rejection, undo/redo, span resizing, auto-balance,
 save/reload/load, and the 2D and 3D views.
 
-The original proposal below is retained as background; horizontal-tail editing is
-a future extension.
+### Horizontal-tail extension — September 22, 2026
+
+Open **Tail → Design Your Own Tail Shape** to use the same mirrored editor for
+the horizontal stabilizer. Tail outlines now drive mass/CG, integrated aerodynamic
+chord and quarter-chord center, tail volume, neutral point, 3D extrusion, and SVG
+patterns. Span/chord sliders scale custom nodes; chord changes resize the tail slot.
+Save/load validates custom tail nodes, while older documents default to tapered tails.
+All four reset shapes are supported. The vertical fin remains parametric.
+
+Verification adds eight tail regression cases (99 total tests), including legacy
+preset equivalence, all reset shapes, balance changes, resizing, persistence, and
+3D/pattern consistency.
+
+The original proposal below is retained as background.
 
 Add an interactive 2D node-based planform editor for wings (and horizontal tail), allowing users to custom-design swept, tapered, elliptical, gull, delta-strake, or freeform wing outlines with real-time symmetry mirroring, 3D camber extrusion, 2D laser-cut templates, and stability physics.
 

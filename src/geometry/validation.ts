@@ -9,7 +9,8 @@ import {
 } from './core';
 import { getFuselageProfilePoints } from '@/physics/massBalance';
 import { analyzeGliderStability } from '@/physics/stability';
-import { validateCustomWing } from './customWing';
+import { validateCustomWing, tailAsWing } from './customWing';
+import { subtractSheetCutouts } from './sheetCutouts';
 
 export type ValidationSeverity = 'error' | 'warning' | 'info';
 export type ValidationCategory = 'structural' | 'manufacturing' | 'aerodynamic';
@@ -106,6 +107,10 @@ export function validateGliderDesign(
   providedAeroReport?: GliderAeroReport
 ): ValidationReport {
   const issues: ValidationIssue[] = [];
+  if (glider.horizontalStabilizer.planformType === 'custom') {
+    const problem = validateCustomWing(tailAsWing(glider.horizontalStabilizer));
+    if (problem) issues.push({ id: 'custom-tail-outline', severity: 'error', category: 'structural', title: 'Invalid custom tail', message: problem.replace(/wing/gi, 'tail'), affectedComponent: 'horizontalStabilizer' });
+  }
   if (glider.wing.planformType === 'custom') {
     const problem = validateCustomWing(glider.wing);
     if (problem) issues.push({ id: 'custom-wing-outline', severity: 'error', category: 'structural', title: 'Invalid custom wing', message: problem, affectedComponent: 'wing' });
@@ -113,6 +118,14 @@ export function validateGliderDesign(
   const { fuselage, wing } = glider;
   const rawFuselagePoints = getFuselageProfilePoints(glider);
   const fuselagePoints = rawFuselagePoints.length >= 3 ? sampleSmoothClosedCurve(rawFuselagePoints, 8) : rawFuselagePoints;
+  const slotCuts = [calculateSlotPoints(fuselage.tailSlot)];
+  if (fuselage.mountType === 'through_slot') slotCuts.push(calculateSlotPoints(fuselage.wingSlot, wing.rootChordMm, wing.camberPercent));
+  const remainingSheet = subtractSheetCutouts(fuselagePoints, slotCuts);
+  if (remainingSheet.length !== 1) {
+    issues.push({ id: 'fuselage_cut_disconnect', severity: 'error', category: 'structural',
+      title: 'Slots Separate the Fuselage', message: 'The slot cuts leave disconnected pieces or remove the entire fuselage.',
+      suggestedFix: 'Move or shorten the slots, or enlarge the surrounding body profile to leave a continuous wood bridge.', affectedComponent: 'fuselage' });
+  }
   const fuselageBBox = calculateBoundingBox(fuselagePoints);
   const aeroReport = providedAeroReport ?? analyzeGliderStability(glider);
 

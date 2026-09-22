@@ -1,51 +1,24 @@
-import { GliderAeroReport, GliderDesign, StabilityStatus, getEffectiveTipChordMm, getWingPlanformKind } from '@/types/glider';
+import { GliderAeroReport, GliderDesign, StabilityStatus } from '@/types/glider';
 import { calculateGliderMassAndCG } from './massBalance';
-import { calculateNeutralPoint, computeSurfaceAerodynamics, computeCustomWingAerodynamics } from './aerodynamics';
-import { validateCustomWing } from '@/geometry/customWing';
-import { polygonArea, calculateWingPlanformPoints } from '@/geometry/core';
+import { calculateNeutralPoint, computeCustomSurfaceAerodynamics } from './aerodynamics';
+import { tailAsWing, seedWingNodes } from '@/geometry/customWing';
+
 
 export function analyzeGliderStability(glider: GliderDesign): GliderAeroReport {
   // 1. Calculate Mass & CG
   const { breakdown, cgXMm, cgYMm, cgZMm, unballastedMassGrams, unballastedCgXMm } =
     calculateGliderMassAndCG(glider);
 
-  // 2. Calculate Wing Aerodynamics
-  const wingAero = glider.wing.planformType === 'custom' && !validateCustomWing(glider.wing) ? computeCustomWingAerodynamics(glider) : computeSurfaceAerodynamics(
-    glider.wing.rootChordMm,
-    getEffectiveTipChordMm(glider.wing),
-    glider.wing.spanMm,
-    glider.wing.sweepDeg,
+  // Integrate the same sampled outline used for mass, cutting, and rendering.
+  const wingAero = computeCustomSurfaceAerodynamics(
+    { ...glider.wing, customNodes: seedWingNodes(glider.wing) },
     glider.fuselage.wingSlot.xPositionMm,
     glider.fuselage.wingSlot.yPositionMm
   );
-
-  // computeSurfaceAerodynamics assumes a straight-tapered trapezoid, which
-  // understates a curved (elliptical) wing's actual area. Override area and
-  // aspect ratio with the canonical planform's true area — the same value
-  // calculateGliderMassAndCG uses to weigh this exact wing — so the reported
-  // wing area, wing loading, and stall/glide estimates can never silently
-  // disagree with what the wing was actually weighed as. MAC and AC position
-  // remain the documented trapezoid approximation (see core.ts).
-  const customWingNodes = glider.wing.customNodes?.map((n) => ({ x: n.xMm, y: n.yMm }));
-  const wingPlanformPoints = calculateWingPlanformPoints(
-    getWingPlanformKind(glider.wing.planformType),
-    glider.wing.rootChordMm,
-    getEffectiveTipChordMm(glider.wing),
-    glider.wing.spanMm,
-    glider.wing.sweepDeg,
-    customWingNodes
-  );
-  const trueWingAreaMm2 = polygonArea(wingPlanformPoints);
-  wingAero.areaMm2 = trueWingAreaMm2;
-  wingAero.areaDm2 = trueWingAreaMm2 / 10000;
-  wingAero.aspectRatio = trueWingAreaMm2 > 0 ? (glider.wing.spanMm * glider.wing.spanMm) / trueWingAreaMm2 : 0;
-
   // 3. Calculate Tail Aerodynamics
-  const tailAero = computeSurfaceAerodynamics(
-    glider.horizontalStabilizer.rootChordMm,
-    glider.horizontalStabilizer.tipChordMm,
-    glider.horizontalStabilizer.spanMm,
-    glider.horizontalStabilizer.sweepDeg,
+  const tailSurface = tailAsWing(glider.horizontalStabilizer);
+  const tailAero = computeCustomSurfaceAerodynamics(
+    { ...tailSurface, customNodes: seedWingNodes(tailSurface) },
     glider.fuselage.tailSlot.xPositionMm,
     glider.fuselage.tailSlot.yPositionMm
   );

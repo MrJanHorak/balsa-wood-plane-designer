@@ -37,6 +37,7 @@ export default function WorkbenchPage() {
   const [persistenceMessage, setPersistenceMessage] = useState<string | null>(null);
   const [customShapeEditorOpen, setCustomShapeEditorOpen] = useState(false);
   const [wingEditorOpen, setWingEditorOpen] = useState(false);
+  const [tailEditorOpen, setTailEditorOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const glider = design.geometry;
@@ -173,6 +174,7 @@ export default function WorkbenchPage() {
             onChange={handleChange}
             onOpenCustomShapeEditor={() => setCustomShapeEditorOpen(true)}
             onOpenWingEditor={() => setWingEditorOpen(true)}
+            onOpenTailEditor={() => setTailEditorOpen(true)}
           />
         </div>
 
@@ -210,6 +212,7 @@ export default function WorkbenchPage() {
         />
       )}
       {wingEditorOpen && <WingProfileEditor glider={glider} onChange={handleChange} onClose={() => setWingEditorOpen(false)} />}
+      {tailEditorOpen && <WingProfileEditor surface="tail" glider={glider} onChange={handleChange} onClose={() => setTailEditorOpen(false)} />}
     </div>
   );
 }

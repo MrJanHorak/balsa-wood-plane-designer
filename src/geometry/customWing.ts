@@ -1,5 +1,19 @@
-import { WingConfig, WingNode, getEffectiveTipChordMm, getWingPlanformKind } from '@/types/glider';
-import { getWingStationAt } from './core';
+import { TailConfig, WingConfig, WingNode, getEffectiveTipChordMm, getWingPlanformKind } from '@/types/glider';
+import { calculateCustomWingPlanformPoints, getWingStationAt } from './core';
+
+/** Adapt a flat tail to the shared symmetric-surface editor and geometry helpers. */
+export function tailAsWing(tail: TailConfig): WingConfig {
+  return { ...tail, planformType: tail.planformType ?? 'tapered', dihedralDeg: 0, camberPercent: 0, slotTabWidthMm: 0, hasLeadingEdgeTaper: false };
+}
+
+export function wingAsTail(wing: WingConfig): TailConfig {
+  const { planformType, customNodes, spanMm, rootChordMm, tipChordMm, sweepDeg, thicknessMm } = wing;
+  return { planformType, customNodes, spanMm, rootChordMm, tipChordMm, sweepDeg, thicknessMm };
+}
+
+export function getTailPlanformPoints(tail: TailConfig) {
+  return calculateCustomWingPlanformPoints(seedWingNodes(tailAsWing(tail)).map(n => ({ x: n.xMm, y: n.yMm })));
+}
 
 /** Editable wings have one leading and trailing edge at each span station. */
 export function validateCustomWing(wing: WingConfig): string | null {

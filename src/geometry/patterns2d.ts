@@ -1,11 +1,12 @@
 import { GliderDesign, getEffectiveTipChordMm, getWingPlanformKind } from '@/types/glider';
 import { getFuselageProfilePoints } from '@/physics/massBalance';
+import { getTailPlanformPoints } from './customWing';
+import { subtractSheetCutouts } from './sheetCutouts';
 import {
   Point2D,
   calculateWingPlanformPoints,
-  calculateTrapezoidPlanformPoints,
   calculateBoundingBox,
-  pointsToSmoothClosedPath,
+  sampleSmoothClosedCurve,
   calculateSlotPoints,
   pointsToPath,
 } from '@/geometry/core';
@@ -27,14 +28,9 @@ export function generateFuselageFlatPattern(glider: GliderDesign): FlatPartSvg {
   const { fuselage } = glider;
   const points = getFuselageProfilePoints(glider);
 
-  // Smoothed through the same points used for physics/validation/3D — this
-  // is display/cut-line only, so the wing-mount saddle/pylon notch and
-  // nose/tail contour read as a body curve instead of straight polygon
-  // facets. See pointsToSmoothClosedPath for why this doesn't need to
-  // agree exactly with the straight-line polygon area used elsewhere.
-  const outlinePath = pointsToSmoothClosedPath(points);
+  // Use the same sampled contour and boundary-crossing cuts as the 3D mesh.
+  const contour = sampleSmoothClosedCurve(points, 8);
 
-  const slotCutouts: string[] = [];
   const scoreLines: string[] = [];
 
   // Wing slot cutout — only an enclosed hole for through-slot mounting.
@@ -44,28 +40,31 @@ export function generateFuselageFlatPattern(glider: GliderDesign): FlatPartSvg {
   const ws = fuselage.wingSlot;
   const wingSlotPoints = calculateSlotPoints(ws, glider.wing.rootChordMm, glider.wing.camberPercent);
 
-  if (fuselage.mountType === 'through_slot') {
-    slotCutouts.push(pointsToPath(wingSlotPoints));
-  } else if (fuselage.mountType === 'top_saddle' || fuselage.mountType === 'bottom_saddle') {
+  if (fuselage.mountType === 'top_saddle' || fuselage.mountType === 'bottom_saddle') {
     // Glue-seat guide: a dashed line showing exactly where the wing root sits
     scoreLines.push(pointsToPath(wingSlotPoints));
   }
   // parasol_pylon: no mark on the fuselage itself — the pylon is its own flat part
   // (see generatePylonFlatPattern) and glues to the spine independently.
 
-  // Tail slot cutout (tailplane always mounts via enclosed sliding slot)
+  // Tail slot may exit the outline as an open-ended sliding notch.
   const ts = fuselage.tailSlot;
   const tailSlotPoints = calculateSlotPoints(ts);
 
-  slotCutouts.push(pointsToPath(tailSlotPoints));
 
-  const bbox = calculateBoundingBox(points);
+  const cuts = [tailSlotPoints];
+  if (fuselage.mountType === 'through_slot') cuts.push(wingSlotPoints);
+  const regions = subtractSheetCutouts(contour, cuts);
+  const outlinePath = regions.map(r => pointsToPath(r.outline)).join(' ');
+  const enclosedCuts = regions.flatMap(r => r.holes.map(pointsToPath));
+
+  const bbox = calculateBoundingBox(contour);
 
   return {
     id: 'fuselage',
     name: 'Profile Fuselage',
     outlinePath,
-    slotCutouts,
+    slotCutouts: enclosedCuts,
     scoreLines,
     dimensions: { widthMm: bbox.maxX - bbox.minX, heightMm: bbox.maxY - bbox.minY },
     boundingBox: bbox,
@@ -144,7 +143,7 @@ export function generateWingFlatPattern(glider: GliderDesign): FlatPartSvg {
  */
 export function generateTailFlatPattern(glider: GliderDesign): FlatPartSvg {
   const { horizontalStabilizer: tail } = glider;
-  const points = calculateTrapezoidPlanformPoints(tail.rootChordMm, tail.tipChordMm, tail.spanMm, tail.sweepDeg);
+  const points = getTailPlanformPoints(tail);
   const bbox = calculateBoundingBox(points);
 
   return {
