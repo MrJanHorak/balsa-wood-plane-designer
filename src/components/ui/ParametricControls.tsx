@@ -5,6 +5,7 @@ import { GliderDesign, UIMode, WingMountType, WingPlanformType } from '@/types/g
 import { SliderInput } from '@/components/common/SliderInput';
 import { Plane, Sliders, Shield, Weight, PenTool } from 'lucide-react';
 import { scalePointsAboutOrigin } from '@/geometry/core';
+import { resizeWing } from '@/geometry/customWing';
 
 const MOUNT_TYPE_OPTIONS: { value: WingMountType; label: string; simpleLabel: string; defaultY: (maxH: number) => number }[] = [
   { value: 'through_slot', label: 'Through-Slot', simpleLabel: 'Wing Through Body', defaultY: (maxH) => maxH * 0.6 },
@@ -25,6 +26,7 @@ interface ParametricControlsProps {
   mode: UIMode;
   onChange: (updated: GliderDesign) => void;
   onOpenCustomShapeEditor?: () => void;
+  onOpenWingEditor?: () => void;
 }
 
 export const ParametricControls: React.FC<ParametricControlsProps> = ({
@@ -32,6 +34,7 @@ export const ParametricControls: React.FC<ParametricControlsProps> = ({
   mode,
   onChange,
   onOpenCustomShapeEditor,
+  onOpenWingEditor,
 }) => {
   const isSimple = mode === 'simple';
   const [activeSection, setActiveSection] = useState<'wing' | 'fuse' | 'tail' | 'ballast'>('wing');
@@ -39,7 +42,10 @@ export const ParametricControls: React.FC<ParametricControlsProps> = ({
   const updateWing = (fields: Partial<GliderDesign['wing']>) => {
     onChange({
       ...glider,
-      wing: { ...glider.wing, ...fields },
+      wing: resizeWing(glider.wing, fields),
+      fuselage: fields.rootChordMm === undefined ? glider.fuselage : {
+        ...glider.fuselage, wingSlot: { ...glider.fuselage.wingSlot, lengthMm: fields.rootChordMm },
+      },
     });
   };
 
@@ -164,6 +170,9 @@ export const ParametricControls: React.FC<ParametricControlsProps> = ({
         {/* 1. Main Wing Section */}
         {activeSection === 'wing' && (
           <div>
+            <button onClick={onOpenWingEditor} className="w-full mb-3 flex items-center justify-center gap-2 rounded-lg border border-cyan-700 bg-cyan-950/40 p-2 text-xs text-cyan-200 hover:bg-cyan-900/50">
+              <PenTool className="w-4 h-4" />{glider.wing.planformType === 'custom' ? 'Edit Custom Wing Shape' : 'Design Your Own Wing Shape'}
+            </button>
             <div className="py-2 border-b border-slate-800/60 space-y-1.5 mb-2">
               <span className="text-xs font-semibold text-slate-200 block">
                 {isSimple ? 'Wing Shape' : 'Planform Type'}
@@ -211,7 +220,7 @@ export const ParametricControls: React.FC<ParametricControlsProps> = ({
               onChange={(v) => updateWing({ rootChordMm: v })}
             />
 
-            {glider.wing.planformType !== 'rectangular' && glider.wing.planformType !== 'delta' && (
+            {glider.wing.planformType !== 'custom' && glider.wing.planformType !== 'rectangular' && glider.wing.planformType !== 'delta' && (
               <SliderInput
                 label="Tip Chord (c_t)"
                 simpleLabel="Wingtip Width"
@@ -239,7 +248,7 @@ export const ParametricControls: React.FC<ParametricControlsProps> = ({
               onChange={(v) => updateWing({ dihedralDeg: v })}
             />
 
-            <SliderInput
+            {glider.wing.planformType !== 'custom' && <SliderInput
               label="Leading-Edge Sweep (Λ)"
               simpleLabel="Wing Backward Sweep"
               value={glider.wing.sweepDeg}
@@ -250,7 +259,7 @@ export const ParametricControls: React.FC<ParametricControlsProps> = ({
               description="Sweeps wings backward like a jet dart."
               isSimpleMode={isSimple}
               onChange={(v) => updateWing({ sweepDeg: v })}
-            />
+            />}
 
             <SliderInput
               label="Sheet Camber (Wood Curvature)"

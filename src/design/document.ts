@@ -5,6 +5,7 @@ import {
   DesignProvenance,
 } from '@/types/design-document';
 import { GliderDesign } from '@/types/glider';
+import { validateCustomWing } from '@/geometry/customWing';
 
 function createId(): string {
   if (typeof globalThis.crypto?.randomUUID === 'function') {
@@ -99,6 +100,8 @@ export function isPlaneDesignDocument(value: unknown): value is PlaneDesignDocum
   if (!isPlainObject(value.metadata) || !isPlainObject(value.geometry)) return false;
 
   const metadata = value.metadata;
+  const wing = value.geometry.wing;
+  if (isPlainObject(wing) && wing.planformType === 'custom' && validateCustomWing(wing as unknown as GliderDesign['wing'])) return false;
   if (
     typeof metadata.name !== 'string' ||
     typeof metadata.description !== 'string' ||

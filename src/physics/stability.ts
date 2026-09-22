@@ -1,6 +1,7 @@
 import { GliderAeroReport, GliderDesign, StabilityStatus, getEffectiveTipChordMm, getWingPlanformKind } from '@/types/glider';
 import { calculateGliderMassAndCG } from './massBalance';
-import { calculateNeutralPoint, computeSurfaceAerodynamics } from './aerodynamics';
+import { calculateNeutralPoint, computeSurfaceAerodynamics, computeCustomWingAerodynamics } from './aerodynamics';
+import { validateCustomWing } from '@/geometry/customWing';
 import { polygonArea, calculateWingPlanformPoints } from '@/geometry/core';
 
 export function analyzeGliderStability(glider: GliderDesign): GliderAeroReport {
@@ -9,7 +10,7 @@ export function analyzeGliderStability(glider: GliderDesign): GliderAeroReport {
     calculateGliderMassAndCG(glider);
 
   // 2. Calculate Wing Aerodynamics
-  const wingAero = computeSurfaceAerodynamics(
+  const wingAero = glider.wing.planformType === 'custom' && !validateCustomWing(glider.wing) ? computeCustomWingAerodynamics(glider) : computeSurfaceAerodynamics(
     glider.wing.rootChordMm,
     getEffectiveTipChordMm(glider.wing),
     glider.wing.spanMm,

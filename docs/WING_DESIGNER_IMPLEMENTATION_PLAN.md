@@ -1,5 +1,35 @@
 # Implementation Plan: Interactive Custom Wing Planform Designer
 
+## Implementation status — September 22, 2026
+
+The main-wing editor is implemented. Open **Wing → Design Your Own Wing Shape**.
+It supports mirrored right-panel dragging, numeric coordinates, edge-point insertion
+and deletion, undo/redo (including keyboard shortcuts), and resets to all four
+standard shapes. Opening the editor alone does not modify the design.
+
+Root attachments remain fixed; span and root-chord sliders proportionally resize
+custom points. Root-chord changes also resize the fuselage wing slot. Sweep and
+tip-chord sliders are hidden in custom mode because the outline defines them.
+
+Validation requires two tip nodes, ordered edges that never fold back, and at least
+2 mm of chord. Invalid edits are rejected without changing the design; malformed
+custom-node imports are rejected at the document boundary. This is a symmetric
+planform editor, not a polyhedral/variable-dihedral or horizontal-tail editor.
+
+Custom-wing area, MAC, spanwise centroid, and area-weighted quarter-chord location
+are integrated over the piecewise-linear outline. Aerodynamic-center and stability
+predictions still use the existing low-order aerodynamic model, not flight simulation.
+Standard planform aerodynamics retain their existing behavior. Mesh sampling now
+includes every custom corner so sweep cranks agree with the SVG cut outline.
+
+Verification: 91 tests pass; production build and TypeScript pass; ESLint has only
+the four existing unused-variable warnings. Browser checks cover insertion, dragging,
+numeric edits, invalid-edge rejection, undo/redo, span resizing, auto-balance,
+save/reload/load, and the 2D and 3D views.
+
+The original proposal below is retained as background; horizontal-tail editing is
+a future extension.
+
 Add an interactive 2D node-based planform editor for wings (and horizontal tail), allowing users to custom-design swept, tapered, elliptical, gull, delta-strake, or freeform wing outlines with real-time symmetry mirroring, 3D camber extrusion, 2D laser-cut templates, and stability physics.
 
 ---

@@ -255,8 +255,8 @@ export function polygonCentroid(points: Point2D[]): Point2D {
   if (area === 0) return { x: 0, y: 0 };
 
   return {
-    x: Math.abs(cx) / (6 * area),
-    y: Math.abs(cy) / (6 * area),
+    x: cx / (3 * signedArea),
+    y: cy / (3 * signedArea),
   };
 }
 
@@ -381,7 +381,7 @@ function interpolateXAtY(points: Point2D[], targetY: number, defaultX: number): 
     const minY = Math.min(p1.y, p2.y);
     const maxY = Math.max(p1.y, p2.y);
 
-    if (targetY >= minY - 0.001 && targetY <= maxY + 0.001) {
+    if (targetY >= minY - 1e-8 && targetY <= maxY + 1e-8) {
       if (Math.abs(p2.y - p1.y) < 0.0001) {
         return p1.x;
       }
@@ -446,13 +446,13 @@ export function getWingStationAt(
       let tipLEIndex = 0;
       let tipTEIndex = customNodes.length - 1;
       for (let i = 0; i < customNodes.length; i++) {
-        if (customNodes[i].y >= maxSpan - 0.05) {
+        if (customNodes[i].y >= maxSpan - 1e-7) {
           tipLEIndex = i;
           break;
         }
       }
       for (let i = customNodes.length - 1; i >= 0; i--) {
-        if (customNodes[i].y >= maxSpan - 0.05) {
+        if (customNodes[i].y >= maxSpan - 1e-7) {
           tipTEIndex = i;
           break;
         }
@@ -464,7 +464,7 @@ export function getWingStationAt(
 
       const xLE = interpolateXAtY(lePoints, targetY, 0);
       const xTE = interpolateXAtY(tePoints, targetY, rootChordMm);
-      const chord = Math.max(2.0, xTE - xLE);
+      const chord = xTE - xLE;
       return { xLE, chord };
     }
   }

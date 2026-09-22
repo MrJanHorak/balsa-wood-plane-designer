@@ -169,7 +169,12 @@ export function createHalfWingGeometry(glider: GliderDesign): THREE.BufferGeomet
   const camberPercent = wing.camberPercent;
 
   const N = 24; // Chordwise segments
-  const M = 24; // Spanwise segments
+  // Include every custom corner so sharp sweep changes match the cutting pattern.
+  const spanStations = [...new Set([
+    ...Array.from({ length: 25 }, (_, i) => i / 24),
+    ...(wing.planformType === 'custom' ? (wing.customNodes ?? []).map(n => n.yMm / halfSpan) : []),
+  ])].sort((a, b) => a - b);
+  const M = spanStations.length - 1;
 
   const positions: number[] = [];
   const uvs: number[] = [];
@@ -200,7 +205,7 @@ export function createHalfWingGeometry(glider: GliderDesign): THREE.BufferGeomet
   const lowerGrid: number[][] = [];
 
   for (let j = 0; j <= M; j++) {
-    const t = j / M;
+    const t = spanStations[j];
     const z = -t * halfSpan; // Along negative Z so dihedral rotates up
     const { xLE, chord } = getStationGeometry(t);
     const upperRow: number[] = [];
@@ -248,7 +253,7 @@ export function createHalfWingGeometry(glider: GliderDesign): THREE.BufferGeomet
   const leUpper: number[] = [];
   const leLower: number[] = [];
   for (let j = 0; j <= M; j++) {
-    const t = j / M;
+    const t = spanStations[j];
     const z = -t * halfSpan;
     const { xLE } = getStationGeometry(t);
     const v = (t * halfSpan) / 100;
@@ -267,7 +272,7 @@ export function createHalfWingGeometry(glider: GliderDesign): THREE.BufferGeomet
   const teUpper: number[] = [];
   const teLower: number[] = [];
   for (let j = 0; j <= M; j++) {
-    const t = j / M;
+    const t = spanStations[j];
     const z = -t * halfSpan;
     const { xLE, chord } = getStationGeometry(t);
     const xTE = xLE + chord;

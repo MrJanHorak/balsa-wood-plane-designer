@@ -9,6 +9,7 @@ import {
 } from './core';
 import { getFuselageProfilePoints } from '@/physics/massBalance';
 import { analyzeGliderStability } from '@/physics/stability';
+import { validateCustomWing } from './customWing';
 
 export type ValidationSeverity = 'error' | 'warning' | 'info';
 export type ValidationCategory = 'structural' | 'manufacturing' | 'aerodynamic';
@@ -105,6 +106,10 @@ export function validateGliderDesign(
   providedAeroReport?: GliderAeroReport
 ): ValidationReport {
   const issues: ValidationIssue[] = [];
+  if (glider.wing.planformType === 'custom') {
+    const problem = validateCustomWing(glider.wing);
+    if (problem) issues.push({ id: 'custom-wing-outline', severity: 'error', category: 'structural', title: 'Invalid custom wing', message: problem, affectedComponent: 'wing' });
+  }
   const { fuselage, wing } = glider;
   const rawFuselagePoints = getFuselageProfilePoints(glider);
   const fuselagePoints = rawFuselagePoints.length >= 3 ? sampleSmoothClosedCurve(rawFuselagePoints, 8) : rawFuselagePoints;
