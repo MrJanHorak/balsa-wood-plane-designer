@@ -114,6 +114,8 @@ export interface TailConfig {
 }
 
 export interface FinConfig {
+  profileType?: 'standard' | 'custom';
+  customNodes?: WingNode[]; // Single upright profile; y is height above the root.
   heightMm: number;           // Vertical stabilizer height
   rootChordMm: number;        // Base chord
   tipChordMm: number;         // Top chord

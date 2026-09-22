@@ -1,11 +1,11 @@
 import * as THREE from 'three';
+import { getFinProfilePoints } from './customFin';
 import { getTailPlanformPoints, seedWingNodes } from './customWing';
 import { subtractSheetCutouts } from './sheetCutouts';
 import { GliderDesign, getEffectiveTipChordMm, getWingPlanformKind } from '@/types/glider';
-import { getFuselageProfilePoints } from '@/physics/massBalance';
+import { getFuselageContourPoints } from '@/physics/massBalance';
 import {
   getWingStationAt,
-  sampleSmoothClosedCurve,
   calculateSlotPoints,
   getCamberElevation,
 } from '@/geometry/core';
@@ -70,8 +70,7 @@ export function createFuselageMesh(glider: GliderDesign, balsaMaterial: THREE.Ma
   group.name = 'fuselage_group';
 
   const { fuselage } = glider;
-  const rawPoints = getFuselageProfilePoints(glider);
-  const contourPoints = rawPoints.length >= 3 ? sampleSmoothClosedCurve(rawPoints, 8) : rawPoints;
+  const contourPoints = getFuselageContourPoints(glider);
 
   const cuts = [calculateSlotPoints(fuselage.tailSlot)];
   if (fuselage.mountType === 'through_slot') {
@@ -477,25 +476,13 @@ export function createFinMesh(glider: GliderDesign, balsaMaterial: THREE.Materia
     return finGroup; // Already part of fuselage silhouette
   }
 
-  const cr = fin.rootChordMm;
-  const ct = fin.tipChordMm;
-  const h = fin.heightMm;
-  const sweepRad = (fin.sweepDeg * Math.PI) / 180;
-  const tipOffset = h * Math.tan(sweepRad);
-
-  const shape = new THREE.Shape();
-  shape.moveTo(0, 0);
-  shape.lineTo(cr, 0);
-  shape.lineTo(tipOffset + ct, h);
-  shape.lineTo(tipOffset, h);
+  const points = getFinProfilePoints(fin);
+  const shape = new THREE.Shape(points.map(p => new THREE.Vector2(p.x, p.y)));
   shape.closePath();
 
   const geom = new THREE.ExtrudeGeometry(shape, {
     depth: fin.thicknessMm,
-    bevelEnabled: true,
-    bevelSegments: 1,
-    bevelSize: 0.2,
-    bevelThickness: 0.2,
+    bevelEnabled: false,
   });
   geom.translate(0, 0, -fin.thicknessMm / 2);
 

@@ -7,6 +7,7 @@ import {
   generateTailFlatPattern,
   generateWingFlatPattern,
   generatePylonFlatPattern,
+  generateFinFlatPattern,
   FlatPartSvg,
 } from '@/geometry/patterns2d';
 import { Scissors, Ruler, Download, Info } from 'lucide-react';
@@ -116,6 +117,9 @@ export const Pattern2DViewport: React.FC<Pattern2DViewportProps> = ({ glider }) 
   ];
   if (pylon) {
     rows.push({ part: pylon, rotate: false, flip: true, label: `Pylon (${pylon.dimensions.widthMm}×${Math.round(pylon.dimensions.heightMm)}mm)` });
+  }
+  if (!glider.verticalStabilizer.isIntegralWithFuselage) {
+    rows.push({ part: generateFinFlatPattern(glider), rotate: false, flip: true, label: `Vertical Fin (${glider.verticalStabilizer.heightMm}mm)` });
   }
 
   let yCursor = HEADER_SPACE;

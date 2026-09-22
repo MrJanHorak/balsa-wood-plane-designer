@@ -6,6 +6,7 @@ import { SliderInput } from '@/components/common/SliderInput';
 import { Plane, Sliders, Shield, Weight, PenTool } from 'lucide-react';
 import { scalePointsAboutOrigin } from '@/geometry/core';
 import { resizeWing, tailAsWing, wingAsTail } from '@/geometry/customWing';
+import { finAsWing, wingAsFin } from '@/geometry/customFin';
 
 const MOUNT_TYPE_OPTIONS: { value: WingMountType; label: string; simpleLabel: string; defaultY: (maxH: number) => number }[] = [
   { value: 'through_slot', label: 'Through-Slot', simpleLabel: 'Wing Through Body', defaultY: (maxH) => maxH * 0.6 },
@@ -28,6 +29,7 @@ interface ParametricControlsProps {
   onOpenCustomShapeEditor?: () => void;
   onOpenWingEditor?: () => void;
   onOpenTailEditor?: () => void;
+  onOpenFinEditor?: () => void;
 }
 
 export const ParametricControls: React.FC<ParametricControlsProps> = ({
@@ -37,6 +39,7 @@ export const ParametricControls: React.FC<ParametricControlsProps> = ({
   onOpenCustomShapeEditor,
   onOpenWingEditor,
   onOpenTailEditor,
+  onOpenFinEditor,
 }) => {
   const isSimple = mode === 'simple';
   const [activeSection, setActiveSection] = useState<'wing' | 'fuse' | 'tail' | 'ballast'>('wing');
@@ -105,6 +108,15 @@ export const ParametricControls: React.FC<ParametricControlsProps> = ({
         ...glider.fuselage, tailSlot: { ...glider.fuselage.tailSlot, lengthMm: fields.rootChordMm },
       },
     });
+  };
+
+  const updateFinSize = (fields: { heightMm?: number; rootChordMm?: number }) => {
+    const fin = glider.verticalStabilizer;
+    const scaled = resizeWing(finAsWing(fin), {
+      ...(fields.heightMm === undefined ? {} : { spanMm: fields.heightMm * 2 }),
+      ...(fields.rootChordMm === undefined ? {} : { rootChordMm: fields.rootChordMm }),
+    });
+    onChange({ ...glider, verticalStabilizer: wingAsFin(scaled, fin) });
   };
 
   const updateTailSlot = (fields: Partial<GliderDesign['fuselage']['tailSlot']>) => {
@@ -470,6 +482,15 @@ export const ParametricControls: React.FC<ParametricControlsProps> = ({
               isSimpleMode={isSimple}
               onChange={(v) => updateTailSlot({ angleDeg: v })}
             />
+            <div className="mt-4 pt-3 border-t border-slate-700">
+              <h3 className="text-sm font-semibold mb-2">Vertical Fin</h3>
+              <button onClick={onOpenFinEditor} className="w-full mb-3 rounded-lg border border-cyan-700 bg-cyan-950/40 p-2 text-xs text-cyan-200 hover:bg-cyan-900/50">{glider.verticalStabilizer.profileType === 'custom' ? 'Edit Custom Fin Shape' : 'Design Your Own Fin Shape'}</button>
+              <label className="flex gap-2 text-xs text-slate-300 mb-2"><input type="checkbox" checked={glider.verticalStabilizer.isIntegralWithFuselage} onChange={e => onChange({ ...glider, verticalStabilizer: { ...glider.verticalStabilizer, isIntegralWithFuselage: e.target.checked } })} />Cut fin with the fuselage</label>
+              <p className="text-[11px] text-slate-400 mb-2">{glider.verticalStabilizer.isIntegralWithFuselage ? 'Custom fins embed 1 mm into the upper body near the tail mount.' : 'Separate fin appears as its own cut-sheet part for a glued attachment.'}</p>
+              <SliderInput label="Fin Height" value={glider.verticalStabilizer.heightMm} min={10} max={90} step={1} unit="mm" onChange={heightMm => updateFinSize({ heightMm })} />
+              <SliderInput label="Fin Root Chord" value={glider.verticalStabilizer.rootChordMm} min={10} max={70} step={1} unit="mm" onChange={rootChordMm => updateFinSize({ rootChordMm })} />
+              <p className="text-[11px] text-slate-400">Fin edits affect weight and balance. Directional (yaw) stability is not yet simulated.</p>
+            </div>
           </div>
         )}
 

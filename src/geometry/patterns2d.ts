@@ -1,12 +1,12 @@
 import { GliderDesign, getEffectiveTipChordMm, getWingPlanformKind } from '@/types/glider';
-import { getFuselageProfilePoints } from '@/physics/massBalance';
+import { getFuselageContourPoints } from '@/physics/massBalance';
 import { getTailPlanformPoints } from './customWing';
 import { subtractSheetCutouts } from './sheetCutouts';
+import { getFinProfilePoints } from './customFin';
 import {
   Point2D,
   calculateWingPlanformPoints,
   calculateBoundingBox,
-  sampleSmoothClosedCurve,
   calculateSlotPoints,
   pointsToPath,
 } from '@/geometry/core';
@@ -21,15 +21,19 @@ export interface FlatPartSvg {
   boundingBox: { minX: number; minY: number; maxX: number; maxY: number };
 }
 
+export function generateFinFlatPattern(glider: GliderDesign): FlatPartSvg {
+  const points = getFinProfilePoints(glider.verticalStabilizer);
+  const bbox = calculateBoundingBox(points);
+  return { id: 'vertical_fin', name: 'Vertical Fin', outlinePath: pointsToPath(points), slotCutouts: [], scoreLines: [],
+    dimensions: { widthMm: bbox.maxX - bbox.minX, heightMm: bbox.maxY - bbox.minY }, boundingBox: bbox };
+}
+
 /**
  * Generates 2D SVG path data for the Profile Fuselage including wing and tail slot cutouts
  */
 export function generateFuselageFlatPattern(glider: GliderDesign): FlatPartSvg {
   const { fuselage } = glider;
-  const points = getFuselageProfilePoints(glider);
-
-  // Use the same sampled contour and boundary-crossing cuts as the 3D mesh.
-  const contour = sampleSmoothClosedCurve(points, 8);
+  const contour = getFuselageContourPoints(glider);
 
   const scoreLines: string[] = [];
 

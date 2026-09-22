@@ -6,6 +6,7 @@ import {
 } from '@/types/design-document';
 import { GliderDesign } from '@/types/glider';
 import { validateCustomWing, tailAsWing } from '@/geometry/customWing';
+import { validateCustomFin } from '@/geometry/customFin';
 
 function createId(): string {
   if (typeof globalThis.crypto?.randomUUID === 'function') {
@@ -102,6 +103,8 @@ export function isPlaneDesignDocument(value: unknown): value is PlaneDesignDocum
   const metadata = value.metadata;
   const wing = value.geometry.wing;
   const tail = value.geometry.horizontalStabilizer;
+  const fin = value.geometry.verticalStabilizer;
+  if (isPlainObject(fin) && fin.profileType === 'custom' && validateCustomFin(fin as unknown as GliderDesign['verticalStabilizer'])) return false;
   if (isPlainObject(tail) && tail.planformType === 'custom' && validateCustomWing(tailAsWing(tail as unknown as GliderDesign['horizontalStabilizer']))) return false;
   if (isPlainObject(wing) && wing.planformType === 'custom' && validateCustomWing(wing as unknown as GliderDesign['wing'])) return false;
   if (

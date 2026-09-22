@@ -3,14 +3,14 @@ import {
   Point2D,
   isPointInPolygon,
   calculateBoundingBox,
-  sampleSmoothClosedCurve,
   calculateSlotPoints,
   getCamberElevation,
 } from './core';
-import { getFuselageProfilePoints } from '@/physics/massBalance';
+import { getFuselageContourPoints } from '@/physics/massBalance';
 import { analyzeGliderStability } from '@/physics/stability';
 import { validateCustomWing, tailAsWing } from './customWing';
 import { subtractSheetCutouts } from './sheetCutouts';
+import { validateCustomFin } from './customFin';
 
 export type ValidationSeverity = 'error' | 'warning' | 'info';
 export type ValidationCategory = 'structural' | 'manufacturing' | 'aerodynamic';
@@ -107,6 +107,10 @@ export function validateGliderDesign(
   providedAeroReport?: GliderAeroReport
 ): ValidationReport {
   const issues: ValidationIssue[] = [];
+  if (glider.verticalStabilizer.profileType === 'custom') {
+    const problem = validateCustomFin(glider.verticalStabilizer);
+    if (problem) issues.push({ id: 'custom-fin-outline', severity: 'error', category: 'structural', title: 'Invalid custom fin', message: problem, affectedComponent: 'verticalStabilizer' });
+  }
   if (glider.horizontalStabilizer.planformType === 'custom') {
     const problem = validateCustomWing(tailAsWing(glider.horizontalStabilizer));
     if (problem) issues.push({ id: 'custom-tail-outline', severity: 'error', category: 'structural', title: 'Invalid custom tail', message: problem.replace(/wing/gi, 'tail'), affectedComponent: 'horizontalStabilizer' });
@@ -116,8 +120,7 @@ export function validateGliderDesign(
     if (problem) issues.push({ id: 'custom-wing-outline', severity: 'error', category: 'structural', title: 'Invalid custom wing', message: problem, affectedComponent: 'wing' });
   }
   const { fuselage, wing } = glider;
-  const rawFuselagePoints = getFuselageProfilePoints(glider);
-  const fuselagePoints = rawFuselagePoints.length >= 3 ? sampleSmoothClosedCurve(rawFuselagePoints, 8) : rawFuselagePoints;
+  const fuselagePoints = getFuselageContourPoints(glider);
   const slotCuts = [calculateSlotPoints(fuselage.tailSlot)];
   if (fuselage.mountType === 'through_slot') slotCuts.push(calculateSlotPoints(fuselage.wingSlot, wing.rootChordMm, wing.camberPercent));
   const remainingSheet = subtractSheetCutouts(fuselagePoints, slotCuts);

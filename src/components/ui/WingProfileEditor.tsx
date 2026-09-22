@@ -4,11 +4,15 @@ import React, { useEffect, useRef, useState } from 'react';
 import { GliderDesign, WingConfig, WingNode } from '@/types/glider';
 import { seedWingNodes, validateCustomWing, tailAsWing, wingAsTail } from '@/geometry/customWing';
 import { calculateCustomWingPlanformPoints, pointsToPath, polygonArea } from '@/geometry/core';
+import { finAsWing, wingAsFin } from '@/geometry/customFin';
 
-interface Props { glider: GliderDesign; onChange: (design: GliderDesign) => void; onClose: () => void; surface?: 'wing' | 'tail' }
+interface Props { glider: GliderDesign; onChange: (design: GliderDesign) => void; onClose: () => void; surface?: 'wing' | 'tail' | 'fin' }
 const button = 'rounded border border-slate-600 px-3 py-1.5 text-xs hover:bg-slate-700 disabled:opacity-30';
 
 export function WingProfileEditor({ glider, onChange, onClose, surface = 'wing' }: Props) {
+  if (surface === 'fin') return <SurfaceProfileEditor key="fin" surface="fin"
+    glider={{ ...glider, wing: finAsWing(glider.verticalStabilizer) }} onClose={onClose}
+    onChange={next => onChange({ ...glider, verticalStabilizer: wingAsFin(next.wing, glider.verticalStabilizer) })} />;
   if (surface === 'tail') return <SurfaceProfileEditor key="tail" surface="tail"
     glider={{ ...glider, wing: tailAsWing(glider.horizontalStabilizer) }} onClose={onClose}
     onChange={next => onChange({ ...glider, horizontalStabilizer: wingAsTail(next.wing) })} />;
@@ -16,7 +20,8 @@ export function WingProfileEditor({ glider, onChange, onClose, surface = 'wing' 
 }
 
 function SurfaceProfileEditor({ glider, onChange, onClose, surface = 'wing' }: Props) {
-  const surfaceName = surface === 'tail' ? 'Horizontal Tail' : 'Wing';
+  const isFin = surface === 'fin';
+  const surfaceName = isFin ? 'Vertical Fin' : surface === 'tail' ? 'Horizontal Tail' : 'Wing';
   const [nodes, setNodes] = useState(() => seedWingNodes(glider.wing));
   const [history, setHistory] = useState<WingConfig[]>([]);
   const [future, setFuture] = useState<WingConfig[]>([]);
@@ -46,7 +51,7 @@ function SurfaceProfileEditor({ glider, onChange, onClose, surface = 'wing' }: P
     const tips = next.filter(n => Math.abs(n.yMm - tipY) < 1e-6);
     const wing: WingConfig = { ...currentWing.current, planformType: 'custom', customNodes: next, tipChordMm: tips.length === 2 ? tips[1].xMm - tips[0].xMm : glider.wing.tipChordMm };
     const problem = validateCustomWing(wing);
-    if (problem) { setError(surface === 'tail' ? problem.replace(/wing/gi, 'tail') : problem); return; }
+    if (problem) { setError(surface !== 'wing' ? problem.replace(/wing/gi, surface) : problem); return; }
     const before = currentWing.current;
     if (remember) { setHistory(h => [...h, before]); setFuture([]); }
     publish(wing);
@@ -100,16 +105,16 @@ function SurfaceProfileEditor({ glider, onChange, onClose, surface = 'wing' }: P
     const p = new DOMPoint(e.clientX, e.clientY).matrixTransform(matrix.inverse());
     const id = drag.current.id;
     accept(nodes.map(n => n.id !== id || n.yMm === 0 ? n : {
-      ...n, xMm: Math.round(p.y * 10) / 10,
-      yMm: protectedNode(n) ? n.yMm : Math.max(0.1, Math.min(glider.wing.spanMm / 2 - 0.1, Math.round(p.x * 10) / 10)),
+      ...n, xMm: Math.round((isFin ? p.x : p.y) * 10) / 10,
+      yMm: protectedNode(n) ? n.yMm : Math.max(0.1, Math.min(glider.wing.spanMm / 2 - 0.1, Math.round((isFin ? -p.y : p.x) * 10) / 10)),
     }), false);
   };
-  const area = polygonArea(calculateCustomWingPlanformPoints(nodes.map(n => ({ x: n.xMm, y: n.yMm }))));
+  const area = polygonArea(calculateCustomWingPlanformPoints(nodes.map(n => ({ x: n.xMm, y: n.yMm })))) / (isFin ? 2 : 1);
   const halfPath = pointsToPath(nodes.map(n => ({ x: n.yMm, y: n.xMm })));
   return <div className="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-sm flex items-center justify-center p-4">
     <div ref={dialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="wing-editor-title" onKeyDown={keyDown} className="w-full max-w-5xl h-[85vh] bg-slate-900 border border-slate-700 rounded-xl flex flex-col overflow-hidden text-slate-100">
       <div className="flex items-center justify-between p-4 border-b border-slate-700">
-        <div><h2 id="wing-editor-title" className="font-semibold">Custom {surfaceName} Shape Designer</h2><p className="text-xs text-slate-400">Edit the right panel; the left mirrors automatically. Click + to add an edge point.</p></div>
+        <div><h2 id="wing-editor-title" className="font-semibold">Custom {surfaceName} Shape Designer</h2><p className="text-xs text-slate-400">{isFin ? 'Edit the upright profile; root attachments stay fixed.' : 'Edit the right panel; the left mirrors automatically.'} Click + to add an edge point.</p></div>
         <button className={button} onClick={onClose}>Done</button>
       </div>
       <div className="flex flex-wrap items-center gap-2 p-3 border-b border-slate-700">
@@ -122,8 +127,9 @@ function SurfaceProfileEditor({ glider, onChange, onClose, surface = 'wing' }: P
           setHistory(h => [...h, before]); setFuture([]); setSelected(null); publish(wing);
         }}><option value="" disabled>Choose…</option>{['tapered', 'rectangular', 'elliptical', 'delta'].map(s => <option key={s} value={s}>{s}</option>)}</select></label>
       </div>
-      <svg ref={svgRef} aria-label={`${surfaceName} outline; editable right panel`} viewBox={`${-bounds.span / 2} ${bounds.min} ${bounds.span} ${bounds.width}`} className="flex-1 min-h-0 w-full touch-none bg-slate-950/50" onPointerMove={move} onPointerUp={finishDrag} onPointerCancel={() => { if (drag.current) publish(drag.current.before); drag.current = null; }}>
-        <path d={halfPath} transform="scale(-1,1)" fill="#164e6333" stroke="#64748b" strokeWidth={1} strokeDasharray="4 3" />
+      <svg ref={svgRef} aria-label={`${surfaceName} outline`} viewBox={isFin ? `${bounds.min} ${-glider.wing.spanMm / 2 - 20} ${bounds.width} ${glider.wing.spanMm / 2 + 40}` : `${-bounds.span / 2} ${bounds.min} ${bounds.span} ${bounds.width}`} className="flex-1 min-h-0 w-full touch-none bg-slate-950/50" onPointerMove={move} onPointerUp={finishDrag} onPointerCancel={() => { if (drag.current) publish(drag.current.before); drag.current = null; }}>
+        <g transform={isFin ? 'matrix(0,-1,1,0,0,0)' : undefined}>
+        {!isFin && <path d={halfPath} transform="scale(-1,1)" fill="#164e6333" stroke="#64748b" strokeWidth={1} strokeDasharray="4 3" />}
         <path d={halfPath} fill="#0891b233" stroke="#22d3ee" strokeWidth={1} />
         <rect x={-glider.fuselage.thicknessMm / 2} y={0} width={glider.fuselage.thicknessMm} height={glider.wing.rootChordMm} fill="#fbbf2444" />
         <line x1={0} x2={0} y1={bounds.min} y2={bounds.min + bounds.width} stroke="#fbbf24" strokeDasharray="3 3" />
@@ -140,11 +146,12 @@ function SurfaceProfileEditor({ glider, onChange, onClose, surface = 'wing' }: P
           setSelected(n.id); if (n.yMm === 0) return;
           drag.current = { id: n.id, before: currentWing.current }; svgRef.current?.setPointerCapture(e.pointerId); e.preventDefault();
         }} />)}
+        </g>
       </svg>
       <div className="p-3 border-t border-slate-700 text-xs space-y-2">
-        {selectedNode && <div className="flex flex-wrap items-center gap-3"><span>{selectedNode.label}</span>{(['xMm', 'yMm'] as const).map(axis => <label key={axis}>{axis === 'xMm' ? 'Chordwise' : 'Spanwise'} (mm) <input aria-label={`${axis === 'xMm' ? 'Chordwise' : 'Spanwise'} position`} type="number" step="0.1" value={selectedNode[axis]} disabled={selectedNode.yMm === 0 || (axis === 'yMm' && protectedNode(selectedNode))} className="w-20 bg-slate-800 rounded p-1 disabled:opacity-40" onChange={e => { if (e.target.value !== '') accept(nodes.map(n => n.id === selected ? { ...n, [axis]: Number(e.target.value) } : n)); }} /></label>)}</div>}
-        <p>Span {glider.wing.spanMm.toFixed(0)} mm · Root {glider.wing.rootChordMm.toFixed(1)} mm · Tip {(nodes.filter(n => Math.abs(n.yMm - glider.wing.spanMm / 2) < 1e-6).reduce((sum, n, i) => sum + (i === 0 ? -n.xMm : n.xMm), 0)).toFixed(1)} mm · Area {(area / 10000).toFixed(2)} dm² · Aspect ratio {(glider.wing.spanMm ** 2 / area).toFixed(2)}</p>
-        <p className="text-slate-400">Root attachments stay fixed. Resize with the span and center-width sliders. Changes update the model, cutting pattern, and balance calculations.</p>
+        {selectedNode && <div className="flex flex-wrap items-center gap-3"><span>{selectedNode.label}</span>{(['xMm', 'yMm'] as const).map(axis => <label key={axis}>{axis === 'xMm' ? 'Chordwise' : (isFin ? 'Height' : 'Spanwise')} (mm) <input aria-label={`${axis === 'xMm' ? 'Chordwise' : (isFin ? 'Height' : 'Spanwise')} position`} type="number" step="0.1" value={selectedNode[axis]} disabled={selectedNode.yMm === 0 || (axis === 'yMm' && protectedNode(selectedNode))} className="w-20 bg-slate-800 rounded p-1 disabled:opacity-40" onChange={e => { if (e.target.value !== '') accept(nodes.map(n => n.id === selected ? { ...n, [axis]: Number(e.target.value) } : n)); }} /></label>)}</div>}
+        <p>{isFin ? 'Height' : 'Span'} {(glider.wing.spanMm / (isFin ? 2 : 1)).toFixed(0)} mm · Root {glider.wing.rootChordMm.toFixed(1)} mm · Tip {(nodes.filter(n => Math.abs(n.yMm - glider.wing.spanMm / 2) < 1e-6).reduce((sum, n, i) => sum + (i === 0 ? -n.xMm : n.xMm), 0)).toFixed(1)} mm · Area {(area / 10000).toFixed(2)} dm² {!isFin && <>· Aspect ratio {(glider.wing.spanMm ** 2 / area).toFixed(2)}</>}</p>
+        <p className="text-slate-400">Root attachments stay fixed. Resize with the dimension sliders. Changes update the model, cutting pattern, and balance calculations.</p>
         <p role="status" className="text-amber-300 min-h-4">{error}</p>
       </div>
     </div>

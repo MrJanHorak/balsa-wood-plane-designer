@@ -1,11 +1,12 @@
 import { GliderDesign, GliderMassBreakdown, getEffectiveTipChordMm, getWingPlanformKind } from '@/types/glider';
 import { getTailPlanformPoints } from '@/geometry/customWing';
+import { getFinProfilePoints } from '@/geometry/customFin';
+import polygonClipping from 'polygon-clipping';
 import {
   Point2D,
   polygonArea,
   polygonCentroid,
   calculateWingPlanformPoints,
-  calculateTrapezoidPlanformPoints,
   sampleSmoothClosedCurve,
 } from '@/geometry/core';
 
@@ -103,11 +104,26 @@ export function getFuselageProfilePoints(glider: GliderDesign): Point2D[] {
   // appear in the fuselage's own silhouette — otherwise it's invisible in
   // the 3D view AND its mass silently vanishes from physics (neither the
   // renderer nor calculateGliderMassAndCG ever draws/weighs it elsewhere).
-  if (fin.isIntegralWithFuselage && fin.heightMm > 0) {
+  if (fin.isIntegralWithFuselage && fin.heightMm > 0 && fin.profileType !== 'custom') {
     points = insertIntegralFinBump(points, fuselage.tailSlot.xPositionMm, fin);
   }
 
   return points;
+}
+
+/** Preserve sharp custom-fin corners while smoothing only the body. The root
+ * embeds 1 mm into the upper body at the nearest station to the tail mount. */
+export function getFuselageContourPoints(glider: GliderDesign): Point2D[] {
+  const body = sampleSmoothClosedCurve(getFuselageProfilePoints(glider), 8);
+  const fin = glider.verticalStabilizer;
+  if (!fin.isIntegralWithFuselage || fin.profileType !== 'custom') return body;
+  const upper = body.filter(p => p.y > 0.5);
+  const base = upper.reduce((best, p) => Math.abs(p.x - glider.fuselage.tailSlot.xPositionMm) < Math.abs(best.x - glider.fuselage.tailSlot.xPositionMm) ? p : best, upper[0] ?? body[0]);
+  const outline = getFinProfilePoints(fin).map(p => [p.x + base.x, p.y + base.y - 1] as [number, number]);
+  const joined = polygonClipping.union([body.map(p => [p.x, p.y] as [number, number])], [outline]);
+  // The embedded root ensures a connected fin on a valid body contour.
+  const largest = joined.sort((a, b) => polygonArea(b[0].map(([x, y]) => ({ x, y }))) - polygonArea(a[0].map(([x, y]) => ({ x, y }))))[0];
+  return largest ? largest[0].slice(0, -1).map(([x, y]) => ({ x, y })) : body;
 }
 
 /**
@@ -193,8 +209,7 @@ export function calculateGliderMassAndCG(glider: GliderDesign): {
 
   // 1. Fuselage — sampled on the smooth Catmull-Rom contour matching the 3D
   // model and the 2D cut pattern, rather than a coarse polygon approximation.
-  const rawFusePoly = getFuselageProfilePoints(glider);
-  const fusePoly = rawFusePoly.length >= 3 ? sampleSmoothClosedCurve(rawFusePoly, 8) : rawFusePoly;
+  const fusePoly = getFuselageContourPoints(glider);
   const fuseAreaMm2 = polygonArea(fusePoly);
   const { x: fuseCx, y: fuseCy } = polygonCentroid(fusePoly);
   const fuseVolumeMm3 = fuseAreaMm2 * glider.fuselage.thicknessMm;
@@ -242,21 +257,12 @@ export function calculateGliderMassAndCG(glider: GliderDesign): {
   let finCy = tailCy + glider.verticalStabilizer.heightMm * 0.4;
 
   if (!glider.verticalStabilizer.isIntegralWithFuselage) {
-    const finPoints = calculateTrapezoidPlanformPoints(
-      glider.verticalStabilizer.rootChordMm,
-      glider.verticalStabilizer.tipChordMm,
-      glider.verticalStabilizer.heightMm * 2, // trapezoid helper is span-symmetric; fin is one half
-      glider.verticalStabilizer.sweepDeg
-    );
-    // Fin is a one-sided (non-symmetric) surface — the y>=0 half of the
-    // symmetric helper's output is already the complete fin polygon
-    // (root chord at y=0, tip chord at y=heightMm), not half of it.
-    const finHalfPoints = finPoints.filter((p) => p.y >= 0);
+    const finHalfPoints = getFinProfilePoints(glider.verticalStabilizer);
     const finAreaMm2 = polygonArea(finHalfPoints);
     const finLocalCentroid = polygonCentroid(finHalfPoints);
     finGrams = finAreaMm2 * glider.verticalStabilizer.thicknessMm * densityGPerMm3;
     finCx = glider.fuselage.tailSlot.xPositionMm + finLocalCentroid.x;
-    finCy = glider.fuselage.tailSlot.yPositionMm + finLocalCentroid.y;
+    finCy = glider.fuselage.tailSlot.yPositionMm + glider.fuselage.tailSlot.thicknessMm + finLocalCentroid.y;
   }
 
   // 5. Unballasted Airframe totals
