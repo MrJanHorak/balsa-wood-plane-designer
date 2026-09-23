@@ -6,6 +6,8 @@ import { GLIDER_PRESETS } from '@/constants/presets';
 import { Plane, Box, Scissors, GraduationCap, Cpu, Layers, Save, FolderOpen, Download, Upload } from 'lucide-react';
 import { ValidationReport } from '@/geometry/validation';
 import { ValidationBadge } from './ValidationBadge';
+import { DesignHistoryControls } from './DesignHistoryControls';
+import { NamedDesignVersion } from '@/design/versions';
 
 interface HeaderProps {
   currentPresetId: string;
@@ -21,6 +23,14 @@ interface HeaderProps {
   onLoadLocal: () => void;
   onExport: () => void;
   onImport: () => void;
+  canUndo: boolean;
+  canRedo: boolean;
+  onUndo: () => void;
+  onRedo: () => void;
+  versions: NamedDesignVersion[];
+  onCreateVersion: (name: string) => boolean;
+  onRestoreVersion: (version: NamedDesignVersion) => void;
+  onDeleteVersion: (id: string) => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -37,11 +47,19 @@ export const Header: React.FC<HeaderProps> = ({
   onLoadLocal,
   onExport,
   onImport,
+  canUndo,
+  canRedo,
+  onUndo,
+  onRedo,
+  versions,
+  onCreateVersion,
+  onRestoreVersion,
+  onDeleteVersion,
 }) => {
   return (
-    <header className="h-16 px-4 bg-slate-900 border-b border-slate-800 flex items-center justify-between text-slate-100 select-none z-30 gap-3">
+    <header className="relative px-3 py-2 sm:px-4 bg-slate-900 border-b border-slate-800 flex flex-wrap items-center justify-between text-slate-100 select-none z-30 gap-2.5">
       {/* Brand & Title */}
-      <div className="flex items-center gap-3 min-w-0">
+      <div className="flex w-full items-center gap-3 min-w-0 xl:w-auto">
         <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 to-amber-700 flex items-center justify-center shadow-lg shadow-amber-950/40 border border-amber-400/40 shrink-0">
           <Plane className="w-5 h-5 text-slate-950 -rotate-45" />
         </div>
@@ -55,15 +73,15 @@ export const Header: React.FC<HeaderProps> = ({
             </span>
           </div>
           <p className="text-[11px] text-slate-400 hidden sm:block truncate max-w-[18rem]">
-            {designName} {saveStatus === 'unsaved' ? '• Unsaved changes' : '• Saved'}
+            {designName} {saveStatus === 'unsaved' ? '• Current design unsaved' : '• Saved in this browser'}
           </p>
         </div>
       </div>
 
       {/* Center Viewport Switcher & Preset Selector */}
-      <div className="flex items-center gap-2 sm:gap-4 min-w-0">
+      <div className="order-3 flex w-full flex-col items-stretch gap-2 min-w-0 border-t border-slate-800/80 pt-2 sm:flex-row sm:items-center sm:justify-between">
         {/* Preset Selector */}
-        <div className="flex items-center gap-1.5 bg-slate-950/80 p-1 rounded-lg border border-slate-800 overflow-x-auto max-w-[34rem]">
+        <div className="flex items-center gap-1.5 bg-slate-950/80 p-1 rounded-lg border border-slate-800 overflow-x-auto max-w-full sm:max-w-[34rem]">
           <Layers className="w-3.5 h-3.5 text-slate-400 ml-1.5 hidden md:block shrink-0" />
           <span className="text-xs text-slate-400 hidden lg:inline mr-1 shrink-0">Preset:</span>
           {Object.values(GLIDER_PRESETS).map((preset) => (
@@ -109,8 +127,11 @@ export const Header: React.FC<HeaderProps> = ({
       </div>
 
       {/* Persistence & Dual-Mode Controls */}
-      <div className="flex items-center gap-2 shrink-0">
+      <div className="flex w-full items-center gap-2 min-w-0 overflow-x-auto xl:ml-auto xl:w-auto xl:overflow-visible">
         {validationReport && <ValidationBadge report={validationReport} />}
+
+        <DesignHistoryControls canUndo={canUndo} canRedo={canRedo} onUndo={onUndo} onRedo={onRedo}
+          versions={versions} onCreateVersion={onCreateVersion} onRestoreVersion={onRestoreVersion} onDeleteVersion={onDeleteVersion} />
 
         <div className="flex items-center bg-slate-950/80 p-1 rounded-lg border border-slate-800">
           <button onClick={onSaveLocal} className="p-1.5 rounded text-slate-300 hover:bg-slate-800 hover:text-white" title="Save this design in your browser">

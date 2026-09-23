@@ -1,0 +1,330 @@
+{
+  "id": "1a1ebed6-f8c8-4a94-b989-69e0864f3c57",
+  "schemaVersion": 1,
+  "version": 1,
+  "metadata": {
+    "name": "Sky Scout Trainer",
+    "description": "Classic classroom balsa glider. High dihedral and generous tail area make this very stable and self-recovering.",
+    "createdAt": "2026-09-22T20:39:21.646Z",
+    "updatedAt": "2026-09-23T14:57:56.042Z"
+  },
+  "geometry": {
+    "id": "trainer",
+    "name": "Sky Scout Trainer",
+    "description": "Classic classroom balsa glider. High dihedral and generous tail area make this very stable and self-recovering.",
+    "mode": "simple",
+    "material": {
+      "id": "medium_standard",
+      "name": "Standard Hobby Balsa (8 lb/cu.ft)",
+      "densityKgM3": 128,
+      "sheetThicknessMm": 1.5875,
+      "laserKerfMm": 0.14,
+      "grainOrientation": "spanwise"
+    },
+    "fuselage": {
+      "lengthMm": 250,
+      "maxHeightMm": 24,
+      "noseLengthMm": 60,
+      "noseHeightMm": 22,
+      "tailBoomHeightMm": 10,
+      "thicknessMm": 3.175,
+      "mountType": "through_slot",
+      "autoReinforceSpine": true,
+      "pylonWidthMm": 24,
+      "wingSlot": {
+        "xPositionMm": 72,
+        "yPositionMm": 6,
+        "angleDeg": 2.2,
+        "lengthMm": 60,
+        "thicknessMm": 1.7
+      },
+      "tailSlot": {
+        "xPositionMm": 226,
+        "yPositionMm": 14,
+        "angleDeg": 0.2,
+        "lengthMm": 29,
+        "thicknessMm": 1.7
+      },
+      "noseBallastGrams": 1.71,
+      "ballastPositionXMm": 12,
+      "profileStyle": "custom",
+      "customNodes": [
+        {
+          "id": "custom_node_1790109612068_1",
+          "label": "Nose Tip",
+          "xMm": 0,
+          "yMm": 6.947368421052637
+        },
+        {
+          "id": "custom_node_1790109612068_2",
+          "label": "Point 2",
+          "xMm": 18,
+          "yMm": 12.505263157894744
+        },
+        {
+          "id": "custom_node_1790109612068_3",
+          "label": "Point 3",
+          "xMm": 42,
+          "yMm": 22.800000000000004
+        },
+        {
+          "id": "custom_node_1790109612068_4",
+          "label": "Point 4",
+          "xMm": 60,
+          "yMm": 24
+        },
+        {
+          "id": "custom_node_1790109612068_5",
+          "label": "Point 5",
+          "xMm": 102,
+          "yMm": 24
+        },
+        {
+          "id": "custom_node_1790109612068_6",
+          "label": "Point 6",
+          "xMm": 147,
+          "yMm": 20.21052631578948
+        },
+        {
+          "id": "custom_node_1790109612068_7",
+          "label": "Point 7",
+          "xMm": 162.5,
+          "yMm": 10.10526315789474
+        },
+        {
+          "id": "custom_node_1790109612068_8",
+          "label": "Point 8",
+          "xMm": 225,
+          "yMm": 6.947368421052637
+        },
+        {
+          "id": "custom_node_1790109612068_9",
+          "label": "Point 9",
+          "xMm": 257.42523193359375,
+          "yMm": 6.265871549907484
+        },
+        {
+          "id": "custom_node_1790109624979_25",
+          "label": "New Point",
+          "xMm": 274.8805847167969,
+          "yMm": 1.3658372979415094
+        },
+        {
+          "id": "custom_node_1790109612068_10",
+          "label": "Point 10",
+          "xMm": 250,
+          "yMm": 0
+        },
+        {
+          "id": "custom_node_1790109612068_11",
+          "label": "Point 11",
+          "xMm": 150,
+          "yMm": 0
+        },
+        {
+          "id": "custom_node_1790109612068_12",
+          "label": "Point 12",
+          "xMm": 0,
+          "yMm": 0
+        }
+      ]
+    },
+    "wing": {
+      "planformType": "custom",
+      "spanMm": 285,
+      "rootChordMm": 60,
+      "tipChordMm": 29.200000000000003,
+      "sweepDeg": 14,
+      "dihedralDeg": 9,
+      "camberPercent": 8,
+      "thicknessMm": 1.5875,
+      "slotTabWidthMm": 58,
+      "hasLeadingEdgeTaper": true,
+      "customNodes": [
+        {
+          "id": "le-0",
+          "label": "Root leading edge",
+          "xMm": 0,
+          "yMm": 0,
+          "isFixedRoot": true
+        },
+        {
+          "id": "6b89b1c2-15da-489f-862d-afcc9ce47bb5",
+          "label": "Edge point",
+          "xMm": 9.4,
+          "yMm": 73.59705882352938
+        },
+        {
+          "id": "le-1",
+          "label": "Tip leading edge",
+          "xMm": 35.7,
+          "yMm": 142.49999999999994,
+          "isFixedRoot": false
+        },
+        {
+          "id": "te-1",
+          "label": "Tip trailing edge",
+          "xMm": 64.9,
+          "yMm": 142.49999999999994,
+          "isFixedRoot": false
+        },
+        {
+          "id": "2699c9aa-1bd4-4202-a70d-46e6ecf80c51",
+          "label": "Edge point",
+          "xMm": 48.7,
+          "yMm": 70.3
+        },
+        {
+          "id": "te-0",
+          "label": "Root trailing edge",
+          "xMm": 60,
+          "yMm": 0,
+          "isFixedRoot": true
+        }
+      ]
+    },
+    "horizontalStabilizer": {
+      "planformType": "custom",
+      "customNodes": [
+        {
+          "id": "le-0",
+          "label": "Root leading edge",
+          "xMm": 0,
+          "yMm": 0,
+          "isFixedRoot": true
+        },
+        {
+          "id": "6f25f723-3c91-4846-9308-f15f23bae670",
+          "label": "Edge point",
+          "xMm": 5.719444444444451,
+          "yMm": 16.464
+        },
+        {
+          "id": "0d7b62fa-2fc7-467b-b114-3c76e5b2e11f",
+          "label": "Edge point",
+          "xMm": -0.8861111111111108,
+          "yMm": 37.072000000000045
+        },
+        {
+          "id": "0f30d768-fc25-4f1d-b301-9a6b6f50195c",
+          "label": "Edge point",
+          "xMm": 5.155555555555556,
+          "yMm": 52.416000000000054
+        },
+        {
+          "id": "le-1",
+          "label": "Tip leading edge",
+          "xMm": 5.291706289417741,
+          "yMm": 70.00000000000004,
+          "isFixedRoot": false
+        },
+        {
+          "id": "te-1",
+          "label": "Tip trailing edge",
+          "xMm": 27.8472618449733,
+          "yMm": 70.00000000000004,
+          "isFixedRoot": false
+        },
+        {
+          "id": "04edba68-19b5-4b68-a977-7aab16297cb7",
+          "label": "Edge point",
+          "xMm": 24.650000000000002,
+          "yMm": 50.06400000000004
+        },
+        {
+          "id": "7276e350-4f3e-40ae-a59b-8f0d7d3e69ae",
+          "label": "Edge point",
+          "xMm": 22.233333333333363,
+          "yMm": 35.61600000000004
+        },
+        {
+          "id": "9adf7b17-fb15-450a-857d-59fff7bdcecd",
+          "label": "Edge point",
+          "xMm": 25.777777777777768,
+          "yMm": 17.583999999999996
+        },
+        {
+          "id": "te-0",
+          "label": "Root trailing edge",
+          "xMm": 29.000000000000018,
+          "yMm": 0,
+          "isFixedRoot": true
+        }
+      ],
+      "spanMm": 140,
+      "rootChordMm": 29,
+      "tipChordMm": 22.55555555555554,
+      "sweepDeg": 6,
+      "thicknessMm": 1.5875
+    },
+    "verticalStabilizer": {
+      "heightMm": 52,
+      "rootChordMm": 34,
+      "tipChordMm": 13.588144592950933,
+      "sweepDeg": 20,
+      "thicknessMm": 1.5875,
+      "isIntegralWithFuselage": true,
+      "profileType": "custom",
+      "customNodes": [
+        {
+          "id": "le-0",
+          "label": "Root leading edge",
+          "xMm": 0,
+          "yMm": 0,
+          "isFixedRoot": true
+        },
+        {
+          "id": "3d244ce1-cdf5-4264-98d1-8d61cfcd3152",
+          "label": "Edge point",
+          "xMm": 2.2312500000000006,
+          "yMm": 13.962962962962958
+        },
+        {
+          "id": "abbf1b35-d95c-4e3b-aa87-63e2a8f12098",
+          "label": "Edge point",
+          "xMm": 4.887500000000004,
+          "yMm": 26.288888888888877
+        },
+        {
+          "id": "86219cbd-fa43-4f95-a75b-e7a0ffe0f0c8",
+          "label": "Edge point",
+          "xMm": 9.931578947368411,
+          "yMm": 39.123809523809435
+        },
+        {
+          "id": "21bbf840-f1cf-4529-a3e0-78af3f94f727",
+          "label": "Edge point",
+          "xMm": 12.794736842105253,
+          "yMm": 47.79047619047619
+        },
+        {
+          "id": "le-1",
+          "label": "Tip leading edge",
+          "xMm": 19.77368421052634,
+          "yMm": 52.00000000000003,
+          "isFixedRoot": false
+        },
+        {
+          "id": "te-1",
+          "label": "Tip trailing edge",
+          "xMm": 33.361828803477245,
+          "yMm": 52.00000000000003,
+          "isFixedRoot": false
+        },
+        {
+          "id": "30df7f45-10ed-429a-b3d5-4e8f067b29aa",
+          "label": "Edge point",
+          "xMm": 39.726315789473645,
+          "yMm": 20.67619047619045
+        },
+        {
+          "id": "te-0",
+          "label": "Root trailing edge",
+          "xMm": 34.00000000000003,
+          "yMm": 0,
+          "isFixedRoot": true
+        }
+      ]
+    }
+  }
+}

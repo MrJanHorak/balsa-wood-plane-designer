@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { GliderDesign, UIMode } from '@/types/glider';
 import { PlaneDesignDocument } from '@/types/design-document';
 import { DEFAULT_GLIDER } from '@/constants/presets';
@@ -16,6 +16,8 @@ import {
   loadPlaneDesignFromLocalStorage,
   savePlaneDesignToLocalStorage,
 } from '@/design/storage';
+import { createDesignHistory, designHistoryReducer } from '@/design/history';
+import { createNamedVersion, loadNamedVersions, NamedDesignVersion, saveNamedVersions } from '@/design/versions';
 import { Header } from '@/components/ui/Header';
 import { ParametricControls } from '@/components/ui/ParametricControls';
 import { StabilityInspector } from '@/components/ui/StabilityInspector';
@@ -30,18 +32,71 @@ function createDefaultDocument(): PlaneDesignDocument {
 }
 
 export default function WorkbenchPage() {
-  const [design, setDesign] = useState<PlaneDesignDocument>(() => createDefaultDocument());
-  const [mode, setMode] = useState<UIMode>(design.geometry.mode);
+  const [history, dispatchHistory] = useReducer(designHistoryReducer, undefined, () => createDesignHistory(createDefaultDocument()));
+  const design = history.present;
+  const mode = design.geometry.mode;
   const [activeViewport, setActiveViewport] = useState<'3d' | '2d'>('3d');
-  const [saveStatus, setSaveStatus] = useState<'saved' | 'unsaved'>('unsaved');
+  const [savedDocument, setSavedDocument] = useState<PlaneDesignDocument | null>(null);
+  const [versions, setVersions] = useState<NamedDesignVersion[]>([]);
   const [persistenceMessage, setPersistenceMessage] = useState<string | null>(null);
   const [customShapeEditorOpen, setCustomShapeEditorOpen] = useState(false);
   const [wingEditorOpen, setWingEditorOpen] = useState(false);
   const [tailEditorOpen, setTailEditorOpen] = useState(false);
   const [finEditorOpen, setFinEditorOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const sliderEditingRef = useRef(false);
 
   const glider = design.geometry;
+  const saveStatus = savedDocument && JSON.stringify(savedDocument) === JSON.stringify(design) ? 'saved' : 'unsaved';
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      try {
+        setVersions(loadNamedVersions());
+      } catch (error) {
+        setPersistenceMessage(error instanceof Error ? error.message : 'Unable to read saved versions.');
+      }
+      try {
+        const saved = loadPlaneDesignFromLocalStorage();
+        if (saved) {
+          dispatchHistory({ type: 'hydrate', document: saved });
+          setSavedDocument(structuredClone(saved));
+        }
+      } catch (error) {
+        setPersistenceMessage(error instanceof Error ? error.message : 'Unable to read the current design.');
+      }
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, []);
+
+  useEffect(() => {
+    const finishSlider = () => {
+      if (!sliderEditingRef.current) return;
+      sliderEditingRef.current = false;
+      dispatchHistory({ type: 'endGroup' });
+    };
+    window.addEventListener('pointerup', finishSlider);
+    window.addEventListener('pointercancel', finishSlider);
+    return () => {
+      window.removeEventListener('pointerup', finishSlider);
+      window.removeEventListener('pointercancel', finishSlider);
+    };
+  }, []);
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (!(event.ctrlKey || event.metaKey) || event.altKey ||
+        customShapeEditorOpen || wingEditorOpen || tailEditorOpen || finEditorOpen) return;
+      const target = event.target as HTMLElement | null;
+      if (target?.isContentEditable || target?.closest('input:not([type="range"]), textarea, select')) return;
+      const key = event.key.toLowerCase();
+      if (key !== 'z' && key !== 'y') return;
+      event.preventDefault();
+      dispatchHistory({ type: key === 'y' || event.shiftKey ? 'redo' : 'undo' });
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [customShapeEditorOpen, wingEditorOpen, tailEditorOpen, finEditorOpen]);
 
   // Real-time Aerodynamic & Mass balance analysis
   const aeroReport = useMemo(() => {
@@ -54,18 +109,15 @@ export default function WorkbenchPage() {
   }, [glider, aeroReport]);
 
   const handleChange = (nextGlider: GliderDesign) => {
-    setDesign((prev) => updatePlaneDesignGeometry(prev, nextGlider));
-    setSaveStatus('unsaved');
+    dispatchHistory({ type: 'change', document: updatePlaneDesignGeometry(design, nextGlider) });
     setPersistenceMessage(null);
   };
 
   const handleSelectPreset = (preset: GliderDesign) => {
     handleChange(preset);
-    setMode(preset.mode);
   };
 
   const handleToggleMode = (nextMode: UIMode) => {
-    setMode(nextMode);
     handleChange({ ...glider, mode: nextMode });
   };
 
@@ -82,7 +134,7 @@ export default function WorkbenchPage() {
   const handleSaveLocal = () => {
     try {
       savePlaneDesignToLocalStorage(design);
-      setSaveStatus('saved');
+      setSavedDocument(structuredClone(design));
       setPersistenceMessage('Design saved in this browser.');
     } catch (error) {
       setPersistenceMessage(error instanceof Error ? error.message : 'Unable to save the design.');
@@ -97,9 +149,8 @@ export default function WorkbenchPage() {
         return;
       }
 
-      setDesign(saved);
-      setMode(saved.geometry.mode);
-      setSaveStatus('saved');
+      dispatchHistory({ type: 'change', document: saved });
+      setSavedDocument(structuredClone(saved));
       setPersistenceMessage('Local design loaded.');
     } catch (error) {
       setPersistenceMessage(error instanceof Error ? error.message : 'Unable to load the saved design.');
@@ -123,13 +174,76 @@ export default function WorkbenchPage() {
 
     try {
       const imported = deserializePlaneDesign(await file.text());
-      setDesign(imported);
-      setMode(imported.geometry.mode);
-      setSaveStatus('unsaved');
+      dispatchHistory({ type: 'change', document: imported });
       setPersistenceMessage(`Imported ${imported.metadata.name}.`);
     } catch (error) {
       setPersistenceMessage(error instanceof Error ? error.message : 'Unable to import the selected file.');
     }
+  };
+
+  const handleCreateVersion = (name: string) => {
+    try {
+      const version = createNamedVersion(design, name, versions);
+      const next = [version, ...versions];
+      saveNamedVersions(next);
+      setVersions(next);
+      dispatchHistory({ type: 'stampVersion', document: version.document });
+      try {
+        savePlaneDesignToLocalStorage(version.document);
+        setSavedDocument(structuredClone(version.document));
+        setPersistenceMessage(`Saved version “${version.name}” and the current design.`);
+      } catch {
+        setPersistenceMessage(`Saved version “${version.name}”, but could not update the current-design save.`);
+      }
+      return true;
+    } catch (error) {
+      setPersistenceMessage(error instanceof Error ? error.message : 'Unable to save this version.');
+      return false;
+    }
+  };
+
+  const handleRestoreVersion = (version: NamedDesignVersion) => {
+    dispatchHistory({ type: 'change', document: structuredClone(version.document) });
+    setPersistenceMessage(`Restored “${version.name}”. You can undo this change.`);
+  };
+
+  const handleDeleteVersion = (id: string) => {
+    try {
+      const next = versions.filter((version) => version.id !== id);
+      saveNamedVersions(next);
+      setVersions(next);
+      setPersistenceMessage('Named version deleted.');
+    } catch (error) {
+      setPersistenceMessage(error instanceof Error ? error.message : 'Unable to delete this version.');
+    }
+  };
+
+  const beginSliderEdit = (event: React.SyntheticEvent<HTMLDivElement>) => {
+    if (!(event.target instanceof HTMLInputElement) || event.target.type !== 'range' || sliderEditingRef.current) return;
+    sliderEditingRef.current = true;
+    dispatchHistory({ type: 'beginGroup' });
+  };
+
+  const endSliderEdit = () => {
+    if (!sliderEditingRef.current) return;
+    sliderEditingRef.current = false;
+    dispatchHistory({ type: 'endGroup' });
+  };
+
+  const openEditor = (editor: 'fuselage' | 'wing' | 'tail' | 'fin') => {
+    dispatchHistory({ type: 'beginGroup' });
+    if (editor === 'fuselage') setCustomShapeEditorOpen(true);
+    if (editor === 'wing') setWingEditorOpen(true);
+    if (editor === 'tail') setTailEditorOpen(true);
+    if (editor === 'fin') setFinEditorOpen(true);
+  };
+
+  const closeEditor = (editor: 'fuselage' | 'wing' | 'tail' | 'fin') => {
+    dispatchHistory({ type: 'endGroup' });
+    if (editor === 'fuselage') setCustomShapeEditorOpen(false);
+    if (editor === 'wing') setWingEditorOpen(false);
+    if (editor === 'tail') setTailEditorOpen(false);
+    if (editor === 'fin') setFinEditorOpen(false);
   };
 
   return (
@@ -157,10 +271,18 @@ export default function WorkbenchPage() {
         onLoadLocal={handleLoadLocal}
         onExport={handleExport}
         onImport={handleImport}
+        canUndo={history.past.length > 0 || Boolean(history.groupStart)}
+        canRedo={history.future.length > 0}
+        onUndo={() => dispatchHistory({ type: 'undo' })}
+        onRedo={() => dispatchHistory({ type: 'redo' })}
+        versions={versions}
+        onCreateVersion={handleCreateVersion}
+        onRestoreVersion={handleRestoreVersion}
+        onDeleteVersion={handleDeleteVersion}
       />
 
       {persistenceMessage && (
-        <div className="absolute top-16 left-1/2 -translate-x-1/2 z-40 px-3 py-1.5 rounded-b-lg border border-slate-700 bg-slate-900/95 text-xs text-slate-300 shadow-xl">
+        <div role="status" className="self-center z-40 px-3 py-1.5 rounded-b-lg border border-slate-700 bg-slate-900/95 text-xs text-slate-300 shadow-xl">
           {persistenceMessage}
         </div>
       )}
@@ -168,15 +290,19 @@ export default function WorkbenchPage() {
       {/* Main 3-Column Engineering Studio */}
       <main className="flex-1 flex flex-col md:flex-row min-h-0 overflow-hidden relative">
         {/* Left Sidebar: Parametric Sliders */}
-        <div className="w-full md:w-80 lg:w-96 flex-shrink-0 h-1/3 md:h-full p-2.5 overflow-hidden flex flex-col border-r border-slate-800 bg-slate-950/70 z-20">
+        <div className="w-full md:w-80 lg:w-96 flex-shrink-0 h-1/3 md:h-full p-2.5 overflow-hidden flex flex-col border-r border-slate-800 bg-slate-950/70 z-20"
+          onPointerDownCapture={beginSliderEdit}
+          onKeyDownCapture={(event) => { if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End', 'PageUp', 'PageDown'].includes(event.key)) beginSliderEdit(event); }}
+          onKeyUpCapture={endSliderEdit}
+          onBlurCapture={endSliderEdit}>
           <ParametricControls
             glider={glider}
             mode={mode}
             onChange={handleChange}
-            onOpenCustomShapeEditor={() => setCustomShapeEditorOpen(true)}
-            onOpenWingEditor={() => setWingEditorOpen(true)}
-            onOpenTailEditor={() => setTailEditorOpen(true)}
-            onOpenFinEditor={() => setFinEditorOpen(true)}
+            onOpenCustomShapeEditor={() => openEditor('fuselage')}
+            onOpenWingEditor={() => openEditor('wing')}
+            onOpenTailEditor={() => openEditor('tail')}
+            onOpenFinEditor={() => openEditor('fin')}
           />
         </div>
 
@@ -210,12 +336,12 @@ export default function WorkbenchPage() {
         <FuselageProfileEditor
           glider={glider}
           onChange={handleChange}
-          onClose={() => setCustomShapeEditorOpen(false)}
+          onClose={() => closeEditor('fuselage')}
         />
       )}
-      {wingEditorOpen && <WingProfileEditor glider={glider} onChange={handleChange} onClose={() => setWingEditorOpen(false)} />}
-      {tailEditorOpen && <WingProfileEditor surface="tail" glider={glider} onChange={handleChange} onClose={() => setTailEditorOpen(false)} />}
-      {finEditorOpen && <WingProfileEditor surface="fin" glider={glider} onChange={handleChange} onClose={() => setFinEditorOpen(false)} />}
+      {wingEditorOpen && <WingProfileEditor glider={glider} onChange={handleChange} onClose={() => closeEditor('wing')} />}
+      {tailEditorOpen && <WingProfileEditor surface="tail" glider={glider} onChange={handleChange} onClose={() => closeEditor('tail')} />}
+      {finEditorOpen && <WingProfileEditor surface="fin" glider={glider} onChange={handleChange} onClose={() => closeEditor('fin')} />}
     </div>
   );
 }

@@ -1,5 +1,28 @@
 # Implementation status — September 23, 2026
 
+## Design iteration tools (September 23)
+
+- Workbench-level Undo/Redo now covers sliders, presets, ballast, mode changes,
+  imports, local loads, and restored versions. Continuous slider interaction and
+  each profile-editor session form one undo step. History is capped at 100 steps
+  and lasts for the current browser session.
+- The header exposes Undo/Redo buttons and keyboard shortcuts outside the profile
+  editors. The Versions panel creates named, numbered snapshots in browser storage,
+  lists saved designs, restores them as undoable changes, and supports deliberate
+  deletion. Saving a version also updates the current-design save, which reopens on
+  the next visit. Existing JSON
+  import/export remain available.
+- [`BUILD_TEST_FEEDBACK.md`](BUILD_TEST_FEEDBACK.md) provides the print, fit, mass,
+  balance, and flight measurements needed to turn a physical prototype into code
+  and model corrections. It links NASA's [glider trajectory explanation](https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/glider-trajectory-problem/)
+  as background for later simulation work.
+- Verification for this pass: 182 tests pass, TypeScript and production Webpack
+  build pass, and the browser was checked for version save/reload, preset undo,
+  the narrow header layout, and the Versions panel at desktop width. Lint has only the two
+  pre-existing unused-import warnings. Turbopack's CSS worker could not spawn in
+  this execution environment; the production Webpack build completed normally.
+
+
 ## Completed in this pass
 
 - Added lazy-loaded jsPDF vector export from the 2D Patterns view with A4 and US

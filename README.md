@@ -1,36 +1,25 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# BalsaPlaneDesigner
 
-## Getting Started
+Design, preview, print, and test simple interlocking balsa gliders. The workbench
+includes parametric and custom-shape editors, a 3D assembly view, 2D cutting
+patterns, balance estimates, and full-size PDF print packets.
 
-First, run the development server:
+Use the header's Undo/Redo controls (Ctrl/Cmd+Z and Ctrl/Cmd+Shift+Z) to reverse
+workbench edits. Save **named versions** before experiments or physical builds;
+they remain in this browser and can be restored later. Export design JSON for a
+portable backup. For a first build, follow the [feedback record](docs/BUILD_TEST_FEEDBACK.md)
+and report measurements alongside the saved design version. Current progress and
+remaining limitations are in [implementation status](docs/IMPLEMENTATION_STATUS.md).
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+## Run locally
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Install dependencies with `npm install`, then run `npm run dev` and open
+<http://localhost:3000>. Run `npm test` for the geometry, physics, document,
+and export checks. The workbench entry point is `src/app/page.tsx`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Browser storage holds the latest explicitly saved design and named versions.
+The latest saved design reopens on a return visit. Undo/Redo history lasts only
+for the current session; export JSON for a backup outside this browser.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+The print packet and balance estimates still require a real prototype check.
+Record your results using [the first-build feedback guide](docs/BUILD_TEST_FEEDBACK.md).
