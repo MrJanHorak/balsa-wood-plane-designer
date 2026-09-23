@@ -1,11 +1,11 @@
-import { GliderDesign, getEffectiveTipChordMm, getWingPlanformKind } from '@/types/glider';
+import { GliderDesign } from '@/types/glider';
+import { getWingBlank } from './wingBlank';
 import { getFuselageContourPoints } from '@/physics/massBalance';
 import { getTailPlanformPoints } from './customWing';
 import { getFuselageCuts, subtractSheetCutouts } from './sheetCutouts';
 import { getFinProfilePoints } from './customFin';
 import { getPylonGeometry } from './pylon';
 import {
-  calculateWingPlanformPoints,
   calculateBoundingBox,
   calculateSlotPoints,
   pointsToPath,
@@ -90,29 +90,16 @@ export function generatePylonFlatPattern(glider: GliderDesign): FlatPartSvg {
 }
 
 /**
- * Generates the projected 1-piece wing outline and center dihedral guide.
- * Cambered wings still require developed-sheet flattening before manufacture.
- * Sourced from the canonical planform engine (src/geometry/core.ts) — the same
- * function the 3D renderer and physics engine use for this wing's shape.
+ * Generates a sheet blank with chordwise camber allowance and a center guide.
+ * General swept/tapered cambered blanks remain approximate forming templates.
  */
 export function generateWingFlatPattern(glider: GliderDesign): FlatPartSvg {
   const { wing } = glider;
-  const cr = wing.rootChordMm;
-  const ct = getEffectiveTipChordMm(wing);
-
-  const customWingNodes = wing.customNodes?.map((n) => ({ x: n.xMm, y: n.yMm }));
-  const points = calculateWingPlanformPoints(
-    getWingPlanformKind(wing.planformType),
-    cr,
-    ct,
-    wing.spanMm,
-    wing.sweepDeg,
-    customWingNodes
-  );
+  const { points, rootLengthMm } = getWingBlank(wing);
   const bbox = calculateBoundingBox(points);
 
   // Center Score Line along root chord (for bending dihedral angle)
-  const scoreLines = wing.dihedralDeg !== 0 ? [`M 0 0 L ${cr} 0`] : [];
+  const scoreLines = wing.dihedralDeg !== 0 ? [`M 0 0 L ${rootLengthMm} 0`] : [];
 
   return {
     id: 'main_wing',

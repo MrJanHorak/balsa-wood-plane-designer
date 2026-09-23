@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { GliderDesign } from '@/types/glider';
 import { exportPatternSvg } from '@/geometry/exportSvg';
+import { getWingBlank } from '@/geometry/wingBlank';
 import {
   generateFuselageFlatPattern,
   generateTailFlatPattern,
@@ -88,6 +89,7 @@ export const Pattern2DViewport: React.FC<Pattern2DViewportProps> = ({ glider }) 
 
   const fuselage = generateFuselageFlatPattern(glider);
   const wing = generateWingFlatPattern(glider);
+  const wingBlank = getWingBlank(glider.wing);
   const tail = generateTailFlatPattern(glider);
   const pylon = glider.fuselage.mountType === 'parasol_pylon' ? generatePylonFlatPattern(glider) : null;
 
@@ -267,7 +269,10 @@ export const Pattern2DViewport: React.FC<Pattern2DViewportProps> = ({ glider }) 
               <strong>Export:</strong> SVG uses millimetres with separate red cut and blue guide groups.
               Apply kerf compensation in your cutting software; it is not applied here. Test slot fit on scrap.
               Use the specified thickness for each part; this layout is not a stock-sheet packing plan.
-              {glider.wing.camberPercent > 0 && <strong className="block text-amber-300 mt-1">Cambered wing: this is a projected outline, not a flattened blank. Prototype and adjust before cutting final material.</strong>}
+              {glider.wing.camberPercent > 0 && <span className="block text-amber-300 mt-1">
+                Wing blank root: {wingBlank.rootLengthMm.toFixed(2)} mm; formed chord: {glider.wing.rootChordMm.toFixed(2)} mm.
+                {' '}{wingBlank.description}
+              </span>}
               {glider.wing.dihedralDeg !== 0 && <span className="block mt-1">The center line is a fold/assembly guide. Test the folded wing in its slot; the joint may need local relief.</span>}
             </span>
           </div>

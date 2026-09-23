@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { GLIDER_PRESETS } from '@/constants/presets';
+import { camberArcLength } from '@/geometry/wingBlank';
 import { GliderDesign, getEffectiveTipChordMm, getWingPlanformKind } from '@/types/glider';
 import { calculateGliderMassAndCG, getFuselageProfilePoints } from './massBalance';
 import { analyzeGliderStability } from './stability';
@@ -24,7 +25,7 @@ function parseSvgPath(d: string): { x: number; y: number }[] {
 describe('canonical geometry invariants (cross-system agreement)', () => {
   for (const preset of presets) {
     describe(preset.name, () => {
-      it('the wing area used by physics/mass equals the canonical planform area (and the 2D export)', () => {
+      it('uses projected area for aerodynamics and camber-allowed blank area for material', () => {
         const canonicalPoints = calculateWingPlanformPoints(
           getWingPlanformKind(preset.wing.planformType),
           preset.wing.rootChordMm,
@@ -44,7 +45,12 @@ describe('canonical geometry invariants (cross-system agreement)', () => {
         const flatPattern = generateWingFlatPattern(preset);
         const exportedPoints = parseSvgPath(flatPattern.outlinePath);
         const exportedAreaMm2 = polygonArea(exportedPoints);
-        expect(exportedAreaMm2).toBeCloseTo(canonicalAreaMm2, 0);
+        const blankArea = canonicalAreaMm2 * camberArcLength(1, preset.wing.camberPercent);
+        // SVG coordinates are rounded to 0.01 mm; over a long span the area
+        // rounding error can exceed 0.5 mm².
+        expect(Math.abs(exportedAreaMm2 - blankArea)).toBeLessThan(preset.wing.spanMm * 0.01);
+        expect(calculateGliderMassAndCG(preset).breakdown.wingGrams).toBeCloseTo(
+          blankArea * preset.wing.thicknessMm * preset.material.densityKgM3 / 1e6, 2);
       });
 
       it('produces a physically sane total mass and CG within the airframe length', () => {

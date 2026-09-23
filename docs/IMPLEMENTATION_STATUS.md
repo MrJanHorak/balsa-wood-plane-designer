@@ -2,6 +2,15 @@
 
 ## Completed in this pass
 
+- Wing blanks now include chordwise mean-camber-line arc-length allowance. Root
+  guides extend to the blank chord, while slot geometry retains the formed chord.
+  Unswept constant-chord wings without dihedral have a developed mean-line blank;
+  other cambered wings are explicitly approximate forming templates, not complete
+  surface unfoldings. Springback and stock thickness still need prototype checks.
+- Wing material mass uses blank area; aerodynamic area remains the projected
+  planform. The formed wing mass center still uses the existing planform-centroid
+  approximation. Stock-width checks now include sweep and camber allowance.
+
 - SVG downloads now use explicit millimetre dimensions and matching viewBox units,
   with separate cut and guide groups. Preview backgrounds, labels and rulers are
   excluded from toolpaths. Part thickness is recorded on each cut group.
@@ -12,7 +21,7 @@
 - Manufacturing checks flag narrow/loose slots and short wing-root openings. The
   Aero Dart preset slot now matches its 72 mm root. Stock height checks include
   the actual fuselage contour and integral fin.
-- UI/export notes identify cambered outlines as projected templates, warn about
+- UI/export notes identify general cambered outlines as approximate blanks, warn about
   folded-joint fit, and no longer claim automatic kerf compensation or stock nesting.
 
 - Vertical-fin editing now supports a single upright custom profile, integral or
@@ -39,7 +48,8 @@
   Entering custom mode preserves the elliptical shape, mesh, and balance report.
 - Cut-sheet bounds account for the sampled fuselage curve's extrema.
 
-Verification: 151 tests, including physical SVG units, export parts/escaping,
+Verification: 160 tests, including independent numerical camber arc-length checks,
+blank mass versus aerodynamic area, physical SVG units, export parts/escaping,
 pylon dimensions/moments, fit warnings, net sheet area/centroid and preset ballast
 regressions, malformed imports, triangulated face-area checks across tail slot
 lengths, exact tail sheet thickness, disconnected cuts, elliptical/custom agreement,
@@ -54,7 +64,7 @@ needs a manual check in a normal browser/CAM application.
 ## Next implementation sequence
 
 1. **Manufacturing consistency:** verify central tab and slot fits, custom-fin
-   attachment edge cases, and cambered-sheet flattening. Audit wing/tail incidence
+   attachment edge cases, and full swept/tapered cambered-surface flattening. Audit wing/tail incidence
    transforms in CG calculations; distinguish disconnected pieces from fragile bridges.
 2. **Buildable output:** verify SVG dimensions, separate fit clearance from kerf,
    add calibrated 1:1 tiled PDFs and assembly instructions, then grain-aware layout.

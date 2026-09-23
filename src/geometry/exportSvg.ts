@@ -1,4 +1,5 @@
 import { GliderDesign } from '@/types/glider';
+import { getWingBlank } from './wingBlank';
 import { generateFinFlatPattern, generateFuselageFlatPattern, generatePylonFlatPattern, generateTailFlatPattern, generateWingFlatPattern } from './patterns2d';
 
 const escapeXml = (text: string) => text.replace(/[<>&"']/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;', "'": '&apos;' }[c]!));
@@ -29,7 +30,7 @@ export function exportPatternSvg(glider: GliderDesign): string {
     y += h + 10;
   }
   const notes = 'Units: mm. Red: cut. Blue: score/fold/glue guides, not through-cuts. Layout is not stock nesting; separate parts by sheet thickness and grain. Nominal geometry; apply tool kerf in CAM and test slot fit.'
-    + (glider.wing.camberPercent > 0 ? ' CAMBER: wing is a projected outline, not a developed flat blank. Prototype and adjust before cutting final material.' : '')
+    + ' WING BLANK: ' + getWingBlank(glider.wing).description
     + (glider.wing.dihedralDeg !== 0 ? ' DIHEDRAL: test the center fold and slot fit before assembly.' : '');
   return `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="${width + 20}mm" height="${y}mm" viewBox="0 0 ${width + 20} ${y}">

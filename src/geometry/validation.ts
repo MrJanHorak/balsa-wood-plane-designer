@@ -11,6 +11,7 @@ import { analyzeGliderStability } from '@/physics/stability';
 import { validateCustomWing, tailAsWing } from './customWing';
 import { getFuselageCuts, subtractSheetCutouts } from './sheetCutouts';
 import { validateCustomFin } from './customFin';
+import { getWingBlank } from './wingBlank';
 
 export type ValidationSeverity = 'error' | 'warning' | 'info';
 export type ValidationCategory = 'structural' | 'manufacturing' | 'aerodynamic';
@@ -150,9 +151,10 @@ export function validateGliderDesign(
       message: 'The one-piece wing has a full root chord; its center is not a narrower separate tab.',
       suggestedFix: 'Lengthen the slot to at least the wing root chord.', affectedComponent: 'wing' });
   }
-  if (wing.camberPercent > 0) issues.push({ id: 'wing_pattern_camber', severity: 'warning', category: 'manufacturing',
-    title: 'Cambered Wing Needs a Developed Blank', message: 'The exported wing is its projected planform. Flattening the curved sheet is not implemented.',
-    suggestedFix: 'Prototype and adjust the blank, or use zero camber for a flat-sheet template.', affectedComponent: 'wing' });
+  const wingBlank = getWingBlank(wing);
+  if (wingBlank.approximate) issues.push({ id: 'wing_pattern_camber', severity: 'warning', category: 'manufacturing',
+    title: 'Approximate Cambered Wing Blank', message: wingBlank.description,
+    suggestedFix: 'Prototype and adjust the blank, or use a straight constant-chord wing without dihedral for a developed mean-line blank.', affectedComponent: 'wing' });
   if (wing.dihedralDeg !== 0 && fuselage.mountType === 'through_slot') issues.push({ id: 'wing_fold_fit', severity: 'warning', category: 'manufacturing',
     title: 'Check the Folded Center Joint', message: 'The center fold passes through a finite-thickness fuselage; the slot may need local relief for the dihedral bend.',
     suggestedFix: 'Test the center joint on scrap before cutting final parts.', affectedComponent: 'wing' });
@@ -368,23 +370,25 @@ export function validateGliderDesign(
   // -------------------------------------------------------------
 
   // Wing Root Chord vs Stock Sheet Width (3" / 4")
-  if (wing.rootChordMm > STANDARD_SHEET_WIDTH_4_INCH) {
+  const blankBounds = calculateBoundingBox(wingBlank.points);
+  const blankWidthMm = blankBounds.maxX - blankBounds.minX;
+  if (blankWidthMm > STANDARD_SHEET_WIDTH_4_INCH) {
     issues.push({
       id: 'wing_chord_exceeds_4_inch',
       severity: 'warning',
       category: 'manufacturing',
       title: 'Wing Chord Exceeds 4" Stock Sheet',
-      message: `Root chord (${wing.rootChordMm.toFixed(1)}mm) exceeds commercial 4-inch balsa planks (101.6mm). Two sheets must be edge-glued together.`,
+      message: `Wing blank width (${blankWidthMm.toFixed(1)}mm), including sweep and camber allowance, exceeds 4-inch stock (101.6mm).`,
       suggestedFix: 'Reduce root chord to ≤ 100mm, or plan for edge-glued balsa plank construction.',
       affectedComponent: 'wing',
     });
-  } else if (wing.rootChordMm > STANDARD_SHEET_WIDTH_3_INCH) {
+  } else if (blankWidthMm > STANDARD_SHEET_WIDTH_3_INCH) {
     issues.push({
       id: 'wing_chord_requires_4_inch',
       severity: 'info',
       category: 'manufacturing',
       title: 'Wing Requires 4" Balsa Stock',
-      message: `Root chord (${wing.rootChordMm.toFixed(1)}mm) exceeds standard 3-inch (76.2mm) sheet width. Requires 4-inch wide stock.`,
+      message: `Wing blank width (${blankWidthMm.toFixed(1)}mm), including sweep and camber allowance, exceeds 3-inch (76.2mm) stock.`,
       affectedComponent: 'wing',
     });
   }

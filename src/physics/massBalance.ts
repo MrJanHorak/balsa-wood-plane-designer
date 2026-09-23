@@ -3,6 +3,7 @@ import { getTailPlanformPoints } from '@/geometry/customWing';
 import { getFinProfilePoints } from '@/geometry/customFin';
 import polygonClipping from 'polygon-clipping';
 import { getPylonGeometry } from '@/geometry/pylon';
+import { getWingBlank } from '@/geometry/wingBlank';
 import { calculateSheetProperties, getFuselageCuts, subtractSheetCutouts } from '@/geometry/sheetCutouts';
 import {
   Point2D,
@@ -230,9 +231,10 @@ export function calculateGliderMassAndCG(glider: GliderDesign): {
     glider.wing.sweepDeg,
     customWingNodes
   );
-  const wingAreaMm2 = polygonArea(wingPoints);
   const wingLocalCentroid = polygonCentroid(wingPoints);
-  const wingVolumeMm3 = wingAreaMm2 * glider.wing.thicknessMm;
+  // Material comes from the blank, while the aerodynamic area remains projected.
+  // Its formed mass center retains the existing planform-centroid approximation.
+  const wingVolumeMm3 = polygonArea(getWingBlank(glider.wing).points) * glider.wing.thicknessMm;
   const wingGrams = wingVolumeMm3 * densityGPerMm3;
 
   // Wing planform points are root-centered at local (0,0); translate the
