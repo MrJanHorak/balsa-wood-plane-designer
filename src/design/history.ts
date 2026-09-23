@@ -24,7 +24,8 @@ export function createDesignHistory(document: PlaneDesignDocument): DesignHistor
 
 function changed(a: PlaneDesignDocument, b: PlaneDesignDocument): boolean {
   return a.id !== b.id || a.version !== b.version ||
-    JSON.stringify(a.geometry) !== JSON.stringify(b.geometry);
+    JSON.stringify(a.geometry) !== JSON.stringify(b.geometry) ||
+    JSON.stringify(a.flightTests ?? []) !== JSON.stringify(b.flightTests ?? []);
 }
 
 function appendPast(past: PlaneDesignDocument[], document: PlaneDesignDocument): PlaneDesignDocument[] {

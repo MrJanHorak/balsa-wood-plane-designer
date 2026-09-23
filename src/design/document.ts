@@ -3,6 +3,7 @@ import {
   PlaneDesignDocument,
   DesignMetadata,
   DesignProvenance,
+  FlightTestRecord,
 } from '@/types/design-document';
 import { GliderDesign } from '@/types/glider';
 import { isGliderGeometry } from './validateGeometry';
@@ -92,12 +93,40 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
+const PITCH_OBSERVATIONS = ['unknown', 'steady', 'nose_down', 'suspected_stall', 'oscillating', 'other'];
+const TURN_OBSERVATIONS = ['unknown', 'straight', 'left', 'right', 'variable'];
+
+function validOptionalNumber(value: unknown, allowZero: boolean): boolean {
+  return value === undefined || (typeof value === 'number' && Number.isFinite(value) &&
+    (allowZero ? value >= 0 : value > 0));
+}
+
+function isFlightTestRecord(value: unknown): value is FlightTestRecord {
+  if (!isPlainObject(value)) return false;
+  return typeof value.id === 'string' && value.id.length > 0 &&
+    typeof value.createdAt === 'string' && Number.isFinite(Date.parse(value.createdAt)) &&
+    typeof value.label === 'string' && value.label.trim().length > 0 && value.label.length <= 100 &&
+    typeof value.notes === 'string' && value.notes.length <= 2000 &&
+    PITCH_OBSERVATIONS.includes(value.pitch as string) && TURN_OBSERVATIONS.includes(value.turn as string) &&
+    validOptionalNumber(value.measuredMassGrams, false) &&
+    validOptionalNumber(value.measuredCgXMm, true) &&
+    validOptionalNumber(value.noseBallastGrams, true) &&
+    validOptionalNumber(value.asBuiltDihedralDeg, true) &&
+    (value.asBuiltDihedralDeg === undefined || (value.asBuiltDihedralDeg as number) <= 45) &&
+    (value.wingCamberState === undefined || ['unknown', 'flat', 'formed'].includes(value.wingCamberState as string)) &&
+    validOptionalNumber(value.launchHeightM, false) &&
+    validOptionalNumber(value.distanceM, true) &&
+    (value.distanceM === undefined || value.launchHeightM !== undefined);
+}
+
 export function isPlaneDesignDocument(value: unknown): value is PlaneDesignDocument {
   if (!isPlainObject(value)) return false;
   if (value.schemaVersion !== CURRENT_DESIGN_SCHEMA_VERSION) return false;
   if (typeof value.id !== 'string' || value.id.length === 0) return false;
   if (typeof value.version !== 'number' || !Number.isInteger(value.version) || value.version < 1) return false;
   if (!isPlainObject(value.metadata) || !isPlainObject(value.geometry)) return false;
+  if (value.flightTests !== undefined &&
+    (!Array.isArray(value.flightTests) || !value.flightTests.every(isFlightTestRecord))) return false;
 
   const metadata = value.metadata;
   if (

@@ -23,3 +23,5 @@ for the current session; export JSON for a backup outside this browser.
 
 The print packet and balance estimates still require a real prototype check.
 Record your results using [the first-build feedback guide](docs/BUILD_TEST_FEEDBACK.md).
+The [first-flight evidence review](docs/FIRST_FLIGHT_ANALYSIS_2026-09-23.md)
+shows how to separate measured test outcomes from the app's static estimates.

@@ -31,11 +31,11 @@ Use a consistent, gentle launch in a clear, safe area. Make several flights with
 changing the design between throws; separate each change into a new record.
 
 - Launch height (m), approximate launch speed or effort, and wind conditions:
-- Distances flown over 3–5 attempts (m), including any immediate stalls or dives:
+- Distances flown over 3–5 attempts (m), including any immediate stalls or dives: distance aprox 429cm always from about177cm height. Slight tendency to pull to the right and it seems to stall not glide at about half way.
 - Observed pitch behavior: steady / nose-down / nose-up then stall / repeated
   oscillation / other. Note whether it rolled or turned consistently:
 - Adjustments between trials (ballast, wing/tail incidence, bend, trim), with
-  before-and-after result:
+  before-and-after result: I tried with different weights, paper clips, one large one small, that was too light, two pennies to the front were too heavy. A rubber pencil top eraser on the tip was ok. In the end I put playdoh on it to balance out the weight.
 - What did the app predict, and what differed most from the real plane?
 
 Measured flight distance divided by launch height is a rough glide-ratio observation

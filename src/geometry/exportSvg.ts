@@ -1,5 +1,6 @@
 import { GliderDesign } from '@/types/glider';
 import { getWingBlank } from './wingBlank';
+import { getWingFormingTargets } from './wingForming';
 import { getPrintParts } from './printLayout';
 
 const escapeXml = (text: string) => text.replace(/[<>&"']/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;', "'": '&apos;' }[c]!));
@@ -7,6 +8,7 @@ const escapeXml = (text: string) => text.replace(/[<>&"']/g, c => ({ '<': '&lt;'
 /** Manufacturing geometry only. No preview backgrounds, labels or rulers become
  * accidental toolpaths. One SVG user unit is one physical millimetre. */
 export function exportPatternSvg(glider: GliderDesign): string {
+  const forming = getWingFormingTargets(glider.wing);
   const parts = getPrintParts(glider);
   const cuts: string[] = [], guides: string[] = [];
   let y = 10, width = 0;
@@ -25,7 +27,8 @@ export function exportPatternSvg(glider: GliderDesign): string {
   }
   const notes = 'Units: mm. Red: cut. Blue: score/fold/glue guides, not through-cuts. Layout is not stock nesting; separate parts by sheet thickness and grain. Nominal geometry; apply tool kerf in CAM and test slot fit.'
     + ' WING BLANK: ' + getWingBlank(glider.wing).description
-    + (glider.wing.dihedralDeg !== 0 ? ' DIHEDRAL: through-slots include assembled-wing relief; test the insertion sequence and center fold on scrap.' : '');
+    + (glider.wing.dihedralDeg !== 0 ? ` DIHEDRAL: form ${glider.wing.dihedralDeg.toFixed(1)} degrees per half, about ${forming.tipRiseMm.toFixed(1)} mm tip rise with the center level. Pulling the wing straight through leaves it flat; test the center fold on scrap.` : '')
+    + (glider.wing.camberPercent > 0 ? ` CAMBER: form about ${forming.rootCamberRiseMm.toFixed(1)} mm root rise near 40 percent chord; the flat blank does not make this shape automatically.` : '');
   return `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="${width + 20}mm" height="${y}mm" viewBox="0 0 ${width + 20} ${y}">
 <title>${escapeXml(glider.name)} — cutting templates</title><desc>${escapeXml(notes)}</desc>

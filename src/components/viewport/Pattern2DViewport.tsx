@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { GliderDesign } from '@/types/glider';
 import { exportPatternSvg } from '@/geometry/exportSvg';
 import { getWingBlank } from '@/geometry/wingBlank';
+import { getWingFormingTargets } from '@/geometry/wingForming';
 import type { PrintPaper } from '@/geometry/printLayout';
 import {
   generateFuselageFlatPattern,
@@ -104,6 +105,7 @@ export const Pattern2DViewport: React.FC<Pattern2DViewportProps> = ({ glider }) 
   const fuselage = generateFuselageFlatPattern(glider);
   const wing = generateWingFlatPattern(glider);
   const wingBlank = getWingBlank(glider.wing);
+  const wingForming = getWingFormingTargets(glider.wing);
   const tail = generateTailFlatPattern(glider);
   const pylon = glider.fuselage.mountType === 'parasol_pylon' ? generatePylonFlatPattern(glider) : null;
 
@@ -294,8 +296,13 @@ export const Pattern2DViewport: React.FC<Pattern2DViewportProps> = ({ glider }) 
               {glider.wing.camberPercent > 0 && <span className="block text-amber-300 mt-1">
                 Wing blank root: {wingBlank.rootLengthMm.toFixed(2)} mm; formed chord: {glider.wing.rootChordMm.toFixed(2)} mm.
                 {' '}{wingBlank.description}
+                {' '}Target root camber rise: {wingForming.rootCamberRiseMm.toFixed(1)} mm. Cut-out alone does not form the curve.
               </span>}
-              {glider.wing.dihedralDeg !== 0 && <span className="block mt-1">The center line is a fold/assembly guide. Through-slots include relief for the assembled wing across the fuselage thickness. Test the insertion sequence and bending on scrap.</span>}
+              {glider.wing.dihedralDeg !== 0 && <span className="block mt-1">
+                Target dihedral: {glider.wing.dihedralDeg.toFixed(1)}° per side, about {wingForming.tipRiseMm.toFixed(1)} mm tip rise on each half-span.
+                {' '}Pulling the wing straight through leaves it flat; the center line is a fold/assembly guide.
+                {' '}Through-slots include relief for the formed wing. Test insertion and bending on scrap.
+              </span>}
             </span>
           </div>
         </div>

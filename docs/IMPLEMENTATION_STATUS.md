@@ -1,5 +1,34 @@
 # Implementation status — September 23, 2026
 
+## First flight feedback and measurement loop
+
+- The user built and flew the saved Sky Scout design. Print calibration and tile
+  alignment were good. Several roughly 4.29 m throws from around 1.77 m had a
+  slight right pull and possible stall halfway through. Nose ballast changes
+  clearly affected behavior. The builder confirmed that the flown wing was
+  pulled straight through (about 0° dihedral) although the design specifies
+  9° per side. Actual build mass, ballast mass, CG, and camber remain unknown;
+  see [the evidence review](FIRST_FLIGHT_ANALYSIS_2026-09-23.md).
+- Added a Build & flight tests panel. Observations, measured mass/CG/ballast,
+  launch height and distance stay with the design JSON, local save, named
+  versions, and undo history. The displayed distance/release-height is explicitly
+  a throw result, not a steady-glide L/D measurement.
+- The uncalibrated numeric glide-ratio and stall-speed heuristics are no longer
+  shown as flight predictions. The app still reports geometry, mass and estimated
+  static balance. Calibration and a bounded flight simulator remain future work.
+- Pattern preview, SVG, and PDF assembly guidance now state the wing forming
+  targets and explain that pulling the wing straight through leaves it flat.
+
+## Print and preview feedback (September 23)
+
+- The first printed packet's calibration box measured correctly and its parts
+  aligned well, according to the user's print check. Cut-line visibility was
+  limited by printer output; a preliminary physical build and flight are now
+  recorded above.
+- The 3D preview now selects `PCFShadowMap`, as Three.js r185 already does when
+  given the deprecated `PCFSoftShadowMap`. This removes the repeated development
+  warning without changing the shadow algorithm that was actually rendered.
+
 ## Design iteration tools (September 23)
 
 - Workbench-level Undo/Redo now covers sliders, presets, ballast, mode changes,
@@ -92,7 +121,7 @@
   Entering custom mode preserves the elliptical shape, mesh, and balance report.
 - Cut-sheet bounds account for the sampled fuselage curve's extrema.
 
-Verification: 176 tests, including print tiling and export, analytical flat-wing relief, cambered root seam
+Verification: 186 tests, including print tiling and export, flight-record persistence and history, wing-forming targets, analytical flat-wing relief, cambered root seam
 continuity, assembled surface samples inside the relieved slot, independent numerical camber arc-length checks,
 blank mass versus aerodynamic area, physical SVG units, export parts/escaping,
 pylon dimensions/moments, fit warnings, net sheet area/centroid and preset ballast
@@ -109,16 +138,18 @@ needs a manual check in a normal browser/CAM application.
 
 ## Next implementation sequence
 
-1. **Buildable output:** test the printed calibration and paper assembly on a real
-   printer; separate fit-clearance controls from kerf, then add grain-aware layout.
-   Complete a physical cut-and-assemble trial before manufacturing sign-off.
+1. **Measure the real build:** record mass, nose ballast, CG, as-built wing
+   shape, and repeated throws. The first print's calibration and tile alignment
+   passed; the first flight used a flat wing despite a 9° dihedral setting.
+   Use these results to decide whether ballast, trim, forming, or the design
+   geometry needs revision.
 2. **Manufacturing refinements:** verify insertion paths and custom-fin attachment
    edge cases; develop full swept/tapered cambered-surface flattening. Audit wing/tail
    incidence transforms in CG calculations and distinguish fragile bridges from disconnected pieces.
 3. **Aerodynamic calibration:** the outline calculations are consistent, but
-   quarter-chord aerodynamic center, lift slope, downwash, and stall/glide estimates
-   are still low-order models. Validate them with measured flight results before
-   treating the readouts as predictive simulation.
+   quarter-chord aerodynamic center, lift slope, and downwash remain low-order
+   models. Use repeatable flight results to bound uncertainty before treating
+   any trajectory or performance readout as a prediction.
 4. **Educational flight testing:** build a bounded longitudinal simulation after
    establishing its force/moment assumptions; add guided challenges and shareable
    links later. Full VLM/XFOIL, flow simulation and built-up structures remain future work.

@@ -18,6 +18,25 @@ export interface DesignProvenance {
   forkedFrom?: DesignVersionRef;
 }
 
+export type FlightPitchObservation = 'unknown' | 'steady' | 'nose_down' | 'suspected_stall' | 'oscillating' | 'other';
+export type FlightTurnObservation = 'unknown' | 'straight' | 'left' | 'right' | 'variable';
+
+export interface FlightTestRecord {
+  id: string;
+  createdAt: string;
+  label: string;
+  measuredMassGrams?: number;
+  measuredCgXMm?: number;
+  noseBallastGrams?: number;
+  asBuiltDihedralDeg?: number;
+  wingCamberState?: 'unknown' | 'flat' | 'formed';
+  launchHeightM?: number;
+  distanceM?: number;
+  pitch: FlightPitchObservation;
+  turn: FlightTurnObservation;
+  notes: string;
+}
+
 /**
  * Persistent envelope around the current engineering payload.
  *
@@ -31,5 +50,7 @@ export interface PlaneDesignDocument {
   version: number;
   metadata: DesignMetadata;
   geometry: GliderDesign;
+  /** Measured results belong to this particular build, not the generic preset. */
+  flightTests?: FlightTestRecord[];
   provenance?: DesignProvenance;
 }

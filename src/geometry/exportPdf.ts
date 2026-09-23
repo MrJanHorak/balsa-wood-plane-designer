@@ -2,6 +2,7 @@ import { jsPDF } from 'jspdf';
 import { GliderDesign } from '@/types/glider';
 import { getPrintParts, getPartTiles, getRegistrationMarks, printPoint, readPatternPath, PRINT_MARGIN, PRINT_TOP, PRINT_OVERLAP, PRINT_PAPER, PrintPaper } from './printLayout';
 import { getWingBlank } from './wingBlank';
+import { getWingFormingTargets } from './wingForming';
 import { validateGliderDesign } from './validation';
 
 // Built-in PDF fonts have limited Unicode coverage. Keep arbitrary design names
@@ -37,7 +38,10 @@ export function createPatternPdf(g: GliderDesign, paper: PrintPaper = 'a4'): jsP
   parts.forEach((item, i) => block(`${item.part.name}: ${item.thickness.toFixed(3)} mm sheet; ${layouts[i].rows} row(s) x ${layouts[i].columns} column(s).`, 9));
   block('Build notes', 12, true);
   block(getWingBlank(g.wing).description, 9);
-  block('Form the wing to the design chord, then dry-fit the wing and tail in their slots. Through-slots include clearance for the final assembled wing, but insertion paths and wood bending are not simulated. Check on scrap before cutting final stock. A separate fin or pylon needs a glue joint. Verify physical balance before a gentle test launch.', 9);
+  const forming = getWingFormingTargets(g.wing);
+  if (g.wing.dihedralDeg > 0) block(`Main wing: form ${g.wing.dihedralDeg.toFixed(1)} degrees upward on EACH half. With the center held level, each tip should rise about ${forming.tipRiseMm.toFixed(1)} mm. Pulling the blank straight through the slot leaves it flat; the center guide does not bend it automatically. Do not cut through the guide. If forming cracks the wood, use a flat-wing design or revise the joint.`, 9);
+  if (g.wing.camberPercent > 0) block(`Root chord: the intended ${g.wing.camberPercent.toFixed(1)}% camber has about ${forming.rootCamberRiseMm.toFixed(1)} mm maximum rise near 40% chord. The flat blank must be formed to reach this shape; check both halves for similar curvature.`, 9);
+  block('Dry-fit the wing and tail, and trial the wing-forming and insertion sequence on scrap. Through-slots include clearance for the final assembled wing, but insertion paths and wood bending are not simulated. Do not force a bent wing through a tight slot; revise the joint or choose a flat-wing design if needed. A separate fin or pylon needs a glue joint. Verify physical balance before a gentle test launch.', 9);
   block('Dimensions are nominal. Cutting-tool kerf is not applied. Use measured stock thickness and test the fit. Glue, finish and actual wood density can change the mass and balance.', 9);
   const report = validateGliderDesign(g);
   if (report.errors.length || report.warnings.length) {

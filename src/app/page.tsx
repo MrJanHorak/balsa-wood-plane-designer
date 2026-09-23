@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { GliderDesign, UIMode } from '@/types/glider';
-import { PlaneDesignDocument } from '@/types/design-document';
+import { FlightTestRecord, PlaneDesignDocument } from '@/types/design-document';
 import { DEFAULT_GLIDER } from '@/constants/presets';
 import { analyzeGliderStability } from '@/physics/stability';
 import { validateGliderDesign } from '@/geometry/validation';
@@ -18,10 +18,12 @@ import {
 } from '@/design/storage';
 import { createDesignHistory, designHistoryReducer } from '@/design/history';
 import { createNamedVersion, loadNamedVersions, NamedDesignVersion, saveNamedVersions } from '@/design/versions';
+import { addFlightTest, removeFlightTest } from '@/design/flightTests';
 import { Header } from '@/components/ui/Header';
 import { ParametricControls } from '@/components/ui/ParametricControls';
 import { StabilityInspector } from '@/components/ui/StabilityInspector';
 import { TelemetryCard } from '@/components/ui/TelemetryCard';
+import { FlightTestPanel } from '@/components/ui/FlightTestPanel';
 import { FuselageProfileEditor } from '@/components/ui/FuselageProfileEditor';
 import { WingProfileEditor } from '@/components/ui/WingProfileEditor';
 import { Glider3DViewport } from '@/components/viewport/Glider3DViewport';
@@ -218,6 +220,25 @@ export default function WorkbenchPage() {
     }
   };
 
+  const saveFlightTestChange = (next: PlaneDesignDocument, message: string) => {
+    dispatchHistory({ type: 'change', document: next });
+    try {
+      savePlaneDesignToLocalStorage(next);
+      setSavedDocument(structuredClone(next));
+      setPersistenceMessage(message);
+    } catch (error) {
+      setPersistenceMessage(`Test updated, but browser storage failed: ${error instanceof Error ? error.message : 'please export or save the design.'}`);
+    }
+  };
+
+  const handleAddFlightTest = (test: FlightTestRecord) => {
+    saveFlightTestChange(addFlightTest(design, test), 'Build or flight test saved with this design.');
+  };
+
+  const handleRemoveFlightTest = (id: string) => {
+    saveFlightTestChange(removeFlightTest(design, id), 'Test removed. Undo can restore it.');
+  };
+
   const beginSliderEdit = (event: React.SyntheticEvent<HTMLDivElement>) => {
     if (!(event.target instanceof HTMLInputElement) || event.target.type !== 'range' || sliderEditingRef.current) return;
     sliderEditingRef.current = true;
@@ -324,6 +345,9 @@ export default function WorkbenchPage() {
             validationReport={validationReport}
             onApplyBallast={handleApplyBallast}
           />
+
+          <FlightTestPanel tests={design.flightTests ?? []} aeroReport={aeroReport} nominalDihedralDeg={glider.wing.dihedralDeg}
+            onAdd={handleAddFlightTest} onRemove={handleRemoveFlightTest} />
 
           <TelemetryCard
             aeroReport={aeroReport}

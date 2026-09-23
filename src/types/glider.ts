@@ -195,6 +195,6 @@ export interface GliderAeroReport {
   // Flight Envelope Estimates
   wingLoadingGDm2: number;    // Total mass / Wing Area (g/dm²)
   wingLoadingOzSqFt: number;  // Standard imperial aeromodeling unit
-  estimatedStallSpeedMs: number; // Rough stall velocity (m/s)
-  estimatedGlideRatio: number;// Best Lift-to-Drag ratio (L/D)
+  estimatedStallSpeedMs: number; // Uncalibrated legacy heuristic; do not present as a prediction.
+  estimatedGlideRatio: number; // Uncalibrated legacy heuristic; do not present as a prediction.
 }

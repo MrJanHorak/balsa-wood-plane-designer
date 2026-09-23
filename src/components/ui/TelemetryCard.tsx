@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { GliderAeroReport, UIMode } from '@/types/glider';
-import { Gauge, Feather, Wind, MoveHorizontal } from 'lucide-react';
+import { Gauge, Feather, Wind } from 'lucide-react';
 
 interface TelemetryCardProps {
   aeroReport: GliderAeroReport;
@@ -48,30 +48,11 @@ export const TelemetryCard: React.FC<TelemetryCardProps> = ({ aeroReport, mode }
           </div>
         </div>
 
-        {/* Glide Ratio */}
-        <div className="p-2.5 rounded-lg bg-slate-800/60 border border-slate-700/60 flex flex-col justify-between">
-          <div className="flex items-center gap-1.5 text-slate-400">
-            <MoveHorizontal className="w-3.5 h-3.5 text-emerald-400" />
-            <span>{isSimple ? 'Estimated Glide Ratio' : 'Estimated Lift-to-Drag (L/D)'}</span>
-          </div>
-          <div className="mt-1 flex items-baseline gap-1">
-            <span className="text-base font-bold text-emerald-300">~{aeroReport.estimatedGlideRatio} : 1</span>
-            <span className="text-slate-400 text-[10px]">distance</span>
-          </div>
-        </div>
-
-        {/* Stall Speed */}
-        <div className="p-2.5 rounded-lg bg-slate-800/60 border border-slate-700/60 flex flex-col justify-between">
-          <div className="flex items-center gap-1.5 text-slate-400">
-            <Wind className="w-3.5 h-3.5 text-indigo-400" />
-            <span>Estimated Stall Speed</span>
-          </div>
-          <div className="mt-1 flex items-baseline gap-1">
-            <span className="text-base font-bold text-indigo-300">{aeroReport.estimatedStallSpeedMs}</span>
-            <span className="text-slate-400 text-[10px]">m/s ({(aeroReport.estimatedStallSpeedMs * 2.237).toFixed(1)} mph)</span>
-          </div>
-        </div>
       </div>
+
+      <p className="rounded-lg border border-cyan-900/60 bg-cyan-950/30 p-2.5 text-xs leading-relaxed text-cyan-100/90">
+        Flight distance and stall speed are not predicted yet. The current model checks geometry and estimated static balance; use Build &amp; flight tests to record what the assembled plane does.
+      </p>
 
       {/* Advanced STEM Details */}
       {!isSimple && (

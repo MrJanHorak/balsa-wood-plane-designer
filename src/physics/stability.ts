@@ -77,7 +77,8 @@ export function analyzeGliderStability(glider: GliderDesign): GliderAeroReport {
     recommendedBallastGrams = Number(Math.max(0, neededGrams).toFixed(2));
   }
 
-  // 8. Flight Envelope Estimates
+  // 8. Exploratory legacy heuristics. These are not surfaced as flight predictions:
+  // real camber, trim, material mass, launch and drag have not been calibrated.
   // Wing loading = grams / dm²
   const wingLoadingGDm2 = wingAero.areaDm2 > 0 ? breakdown.totalGrams / wingAero.areaDm2 : 0;
   // 1 g/dm² = 0.3277 oz/ft²
