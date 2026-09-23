@@ -45,3 +45,15 @@ remains usable. These are layout checks, not a complete accessibility audit.
 The [WCAG 2.2 target-size minimum](https://www.w3.org/WAI/WCAG22/Understanding/target-size-minimum)
 is a useful check for the remaining small actions, especially delete controls
 inside version and flight-test records.
+
+## Scrollbar and pattern-view follow-up
+
+- The always-dark workbench now declares a dark native color scheme and uses a
+  slate thumb against a dark track for page and panel scrollbars. Older browsers
+  have a matching WebKit fallback. Scrollbars remain visible and full-size;
+  Windows forced-colors mode retains system scrollbar colors.
+- The 2D pattern legend now wraps by item instead of splitting labels, and the
+  stock-layout caption has stronger contrast against its dark sheet.
+- Checked the running 2D view with visible left, center, and right scrollbars.
+  The three areas use consistent subdued colors while their thumbs remain easy
+  to distinguish from the track.

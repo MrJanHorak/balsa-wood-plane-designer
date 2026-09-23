@@ -8,6 +8,8 @@
   the three-column studio.
 - Slider labeling, helper-text size, keyboard focus, accessible names and
   selected states, and the wording of static-balance estimates were improved.
+  Dark scrollbars now match the workspace, and the 2D pattern legend and sheet
+  caption are easier to scan.
   See [the UI review](UI_UX_REVIEW_2026-09-23.md) for findings and the remaining
   typography, contrast, zoom, and keyboard audit.
 

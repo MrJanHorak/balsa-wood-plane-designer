@@ -3,6 +3,9 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  /* The workbench is always dark, including native controls and scrollbars. */
+  color-scheme: dark;
+  scrollbar-color: #64748b #111827;
 }
 
 @theme inline {
@@ -31,4 +34,32 @@ select:focus-visible,
 textarea:focus-visible {
   outline: 2px solid #22d3ee;
   outline-offset: 2px;
+}
+
+/* Older WebKit scrollbars do not support the standard scrollbar-color property. */
+@supports not (scrollbar-color: #64748b #111827) {
+  ::-webkit-scrollbar {
+    width: 14px;
+    height: 14px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: #111827;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    border: 2px solid #111827;
+    border-radius: 999px;
+    background: #64748b;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+  }
+}
+
+@media (forced-colors: active) {
+  :root {
+    scrollbar-color: auto;
+  }
 }

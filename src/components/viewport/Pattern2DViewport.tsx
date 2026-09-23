@@ -209,16 +209,16 @@ export const Pattern2DViewport: React.FC<Pattern2DViewportProps> = ({ glider }) 
       <div className="flex-1 overflow-auto p-6 flex items-start justify-center bg-[radial-gradient(#1e293b_1px,transparent_1px)] [background-size:16px_16px]">
         <div className="relative p-6 rounded-xl border border-slate-800 bg-slate-900/80 shadow-2xl overflow-hidden max-w-full">
           {/* Legend Banner */}
-          <div className="flex items-center gap-6 mb-4 text-xs text-slate-400">
-            <div className="flex items-center gap-2">
+          <div className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-slate-300">
+            <div className="flex items-center gap-2 whitespace-nowrap">
               <span className="inline-block w-4 h-0.5 bg-red-500" />
               <span>Cut Lines (Laser / Knife)</span>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 whitespace-nowrap">
               <span className="inline-block w-4 h-0.5 border-t-2 border-dashed border-cyan-400" />
               <span>Score / Fold / Glue-Seat Lines</span>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 whitespace-nowrap">
               <span className="inline-block w-3 h-3 border border-amber-500/60 bg-amber-500/10 rounded-sm" />
               <span>Friction Interlocking Slots</span>
             </div>
@@ -242,7 +242,7 @@ export const Pattern2DViewport: React.FC<Pattern2DViewportProps> = ({ glider }) 
               strokeDasharray="4 2"
               rx="4"
             />
-            <text x="10" y="14" fill="#855d3e" fontSize="8" fontFamily="monospace">
+            <text x="10" y="14" fill="#c59a72" fontSize="8" fontFamily="monospace">
               PART LAYOUT — NOT STOCK NESTING ({glider.material.name})
             </text>
 
