@@ -31,7 +31,7 @@ export function exportPatternSvg(glider: GliderDesign): string {
   }
   const notes = 'Units: mm. Red: cut. Blue: score/fold/glue guides, not through-cuts. Layout is not stock nesting; separate parts by sheet thickness and grain. Nominal geometry; apply tool kerf in CAM and test slot fit.'
     + ' WING BLANK: ' + getWingBlank(glider.wing).description
-    + (glider.wing.dihedralDeg !== 0 ? ' DIHEDRAL: test the center fold and slot fit before assembly.' : '');
+    + (glider.wing.dihedralDeg !== 0 ? ' DIHEDRAL: through-slots include assembled-wing relief; test the insertion sequence and center fold on scrap.' : '');
   return `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="${width + 20}mm" height="${y}mm" viewBox="0 0 ${width + 20} ${y}">
 <title>${escapeXml(glider.name)} — cutting templates</title><desc>${escapeXml(notes)}</desc>

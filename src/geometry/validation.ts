@@ -4,7 +4,6 @@ import {
   isPointInPolygon,
   calculateBoundingBox,
   calculateSlotPoints,
-  getCamberElevation,
 } from './core';
 import { getFuselageContourPoints } from '@/physics/massBalance';
 import { analyzeGliderStability } from '@/physics/stability';
@@ -12,6 +11,7 @@ import { validateCustomWing, tailAsWing } from './customWing';
 import { getFuselageCuts, subtractSheetCutouts } from './sheetCutouts';
 import { validateCustomFin } from './customFin';
 import { getWingBlank } from './wingBlank';
+import { getWingJointCuts } from './wingJoint';
 
 export type ValidationSeverity = 'error' | 'warning' | 'info';
 export type ValidationCategory = 'structural' | 'manufacturing' | 'aerodynamic';
@@ -156,15 +156,16 @@ export function validateGliderDesign(
     title: 'Approximate Cambered Wing Blank', message: wingBlank.description,
     suggestedFix: 'Prototype and adjust the blank, or use a straight constant-chord wing without dihedral for a developed mean-line blank.', affectedComponent: 'wing' });
   if (wing.dihedralDeg !== 0 && fuselage.mountType === 'through_slot') issues.push({ id: 'wing_fold_fit', severity: 'warning', category: 'manufacturing',
-    title: 'Check the Folded Center Joint', message: 'The center fold passes through a finite-thickness fuselage; the slot may need local relief for the dihedral bend.',
-    suggestedFix: 'Test the center joint on scrap before cutting final parts.', affectedComponent: 'wing' });
+    title: 'Prototype the Relieved Center Joint', message: 'The slot includes relief from the assembled wing across the fuselage thickness. This checks the final position, not the insertion path or wood bending.',
+    suggestedFix: 'Test the assembly sequence and joint on scrap before cutting final parts.', affectedComponent: 'wing' });
 
   // -------------------------------------------------------------
   // 1. STRUCTURAL ENCLOSURE CHECKS
   // -------------------------------------------------------------
 
   const ws = fuselage.wingSlot;
-  const wingSlotCorners = calculateSlotPoints(ws, wing.rootChordMm, wing.camberPercent);
+  const jointCuts = fuselage.mountType === 'through_slot' ? getWingJointCuts(glider) : [calculateSlotPoints(ws, wing.rootChordMm, wing.camberPercent)];
+  const wingSlotCorners = jointCuts.flat();
   const wingSlotEndXMm = ws.xPositionMm + ws.lengthMm * Math.cos((ws.angleDeg * Math.PI) / 180);
 
   // 1A. Wing Slot Checks
@@ -221,11 +222,10 @@ export function validateGliderDesign(
     testXs.forEach((x) => {
       const bounds = getPolygonVerticalBoundsAtX(fuselagePoints, x);
       if (bounds) {
-        const chordFrac = Math.min(1, Math.max(0, (x - ws.xPositionMm) / (wing.rootChordMm || ws.lengthMm)));
-        const camb = getCamberElevation(chordFrac, wing.rootChordMm || ws.lengthMm, wing.camberPercent);
-        const slotYAtX = ws.yPositionMm + (x - ws.xPositionMm) * Math.tan((ws.angleDeg * Math.PI) / 180);
-        const slotTopY = slotYAtX + camb + ws.thicknessMm / 2;
-        const slotBottomY = slotYAtX + camb - ws.thicknessMm / 2;
+        const cutBounds = jointCuts.map(cut => getPolygonVerticalBoundsAtX(cut, x)).filter(b => b !== null);
+        if (!cutBounds.length) return;
+        const slotTopY = Math.max(...cutBounds.map(b => b.maxY));
+        const slotBottomY = Math.min(...cutBounds.map(b => b.minY));
 
         const upperWeb = bounds.maxY - slotTopY;
         const lowerWeb = slotBottomY - bounds.minY;

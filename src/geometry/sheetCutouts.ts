@@ -1,6 +1,7 @@
 import polygonClipping, { type Polygon } from 'polygon-clipping';
 import { Point2D, calculateSlotPoints, polygonArea, polygonCentroid } from './core';
 import { GliderDesign } from '@/types/glider';
+import { getWingJointCuts } from './wingJoint';
 
 export interface SheetRegion { outline: Point2D[]; holes: Point2D[][] }
 
@@ -8,7 +9,7 @@ export interface SheetRegion { outline: Point2D[]; holes: Point2D[][] }
 export function getFuselageCuts(glider: GliderDesign): Point2D[][] {
   const cuts = [calculateSlotPoints(glider.fuselage.tailSlot)];
   if (glider.fuselage.mountType === 'through_slot') {
-    cuts.push(calculateSlotPoints(glider.fuselage.wingSlot, glider.wing.rootChordMm, glider.wing.camberPercent));
+    cuts.push(...getWingJointCuts(glider));
   }
   return cuts;
 }

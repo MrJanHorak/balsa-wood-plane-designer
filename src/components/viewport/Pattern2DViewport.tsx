@@ -273,7 +273,7 @@ export const Pattern2DViewport: React.FC<Pattern2DViewportProps> = ({ glider }) 
                 Wing blank root: {wingBlank.rootLengthMm.toFixed(2)} mm; formed chord: {glider.wing.rootChordMm.toFixed(2)} mm.
                 {' '}{wingBlank.description}
               </span>}
-              {glider.wing.dihedralDeg !== 0 && <span className="block mt-1">The center line is a fold/assembly guide. Test the folded wing in its slot; the joint may need local relief.</span>}
+              {glider.wing.dihedralDeg !== 0 && <span className="block mt-1">The center line is a fold/assembly guide. Through-slots include relief for the assembled wing across the fuselage thickness. Test the insertion sequence and bending on scrap.</span>}
             </span>
           </div>
         </div>
