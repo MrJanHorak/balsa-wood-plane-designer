@@ -27,13 +27,13 @@ remains usable. These are layout checks, not a complete accessibility audit.
 
 ## Remaining priorities
 
-1. **Typography and contrast audit.** Several editor dialogs, validation
-   details, version rows, and flight-test fields still use 10–11 px text. Define
-   a consistent minimum type scale and measure all normal-text contrast pairs
-   against [WCAG 2.2 contrast minimum](https://www.w3.org/WAI/WCAG22/Understanding/contrast-minimum).
-2. **Keyboard and screen-reader walkthrough.** Check dialog focus management,
-   warnings popovers, the 2D editor, and viewport controls end to end. The
-   labeled camera presets provide an alternative to pointer orbiting, but the
+1. **Typography and contrast audit.** The most frequent tiny labels have been
+   enlarged, but a design-wide type scale and measured contrast checks remain.
+   Verify normal-text pairs against [WCAG 2.2 contrast minimum](https://www.w3.org/WAI/WCAG22/Understanding/contrast-minimum).
+2. **Keyboard and screen-reader walkthrough.** The fuselage dialog and key
+   popovers now have keyboard paths; validate the wing/tail/fin editor, warning
+   announcements, and viewport controls end to end with a screen reader. The
+   labeled camera presets offer an alternative to pointer orbiting, but the
    free-orbit canvas itself has no keyboard interaction.
 3. **High-zoom reflow.** Exercise the workbench at 200% and 400% browser zoom,
    including open editors and expanded test records, against the
@@ -57,3 +57,21 @@ inside version and flight-test records.
 - Checked the running 2D view with visible left, center, and right scrollbars.
   The three areas use consistent subdued colors while their thumbs remain easy
   to distinguish from the track.
+
+## Readability and keyboard follow-up
+
+- Increased the small labels and supporting text in build/flight records,
+  version rows, validation warnings, fuselage editing, and advanced telemetry.
+  The flight form uses two columns for as-built measurements, giving labels and
+  inputs more room; record-delete controls have larger hit areas.
+- The fuselage shape editor now has a named modal dialog with focus containment
+  and return. Edge insertion points and profile points are keyboard controls;
+  arrow keys move a focused point by 1 mm, or 5 mm with Shift. Keyboard
+  instructions are available in the dialog's Editing tips disclosure. Keeping
+  that help collapsed leaves a usable drawing area at 320 px width.
+- Named versions focus the name field on open and return focus to the trigger
+  on Escape. The warnings panel fits a 320 px viewport and closes with Escape
+  or an outside click.
+- Live browser checks verified the fuselage point nudge, focus return, expanded
+  flight form, version focus, and narrow warnings panel. A full screen-reader
+  walkthrough and high-zoom reflow test are still needed.

@@ -32,7 +32,7 @@ export const TelemetryCard: React.FC<TelemetryCardProps> = ({ aeroReport, mode }
           </div>
           <div className="mt-1 flex items-baseline gap-1">
             <span className="text-base font-bold text-slate-100">{massBreakdown.totalGrams}</span>
-            <span className="text-slate-400 text-[10px]">grams</span>
+            <span className="text-slate-300 text-xs">grams</span>
           </div>
         </div>
 
@@ -44,7 +44,7 @@ export const TelemetryCard: React.FC<TelemetryCardProps> = ({ aeroReport, mode }
           </div>
           <div className="mt-1 flex items-baseline gap-1">
             <span className="text-base font-bold text-slate-100">{aeroReport.wingLoadingGDm2}</span>
-            <span className="text-slate-400 text-[10px]">g/dm² ({aeroReport.wingLoadingOzSqFt} oz/ft²)</span>
+            <span className="text-slate-300 text-xs">g/dm² ({aeroReport.wingLoadingOzSqFt} oz/ft²)</span>
           </div>
         </div>
 
@@ -56,7 +56,7 @@ export const TelemetryCard: React.FC<TelemetryCardProps> = ({ aeroReport, mode }
 
       {/* Advanced STEM Details */}
       {!isSimple && (
-        <div className="pt-2 border-t border-slate-800/80 space-y-1 text-[11px] text-slate-300 font-mono">
+        <div className="pt-2 border-t border-slate-800/80 space-y-1 text-xs text-slate-300 font-mono">
           <div className="flex justify-between">
             <span className="text-slate-400">Wing Planform (S_w):</span>
             <span>{aeroReport.wingAreaDm2} dm² ({aeroReport.wingAreaMm2} mm²)</span>
@@ -81,7 +81,7 @@ export const TelemetryCard: React.FC<TelemetryCardProps> = ({ aeroReport, mode }
           </div>
 
           {/* Mass Distribution Breakdown */}
-          <div className="pt-1.5 border-t border-slate-800/60 text-[10px] text-slate-400 grid grid-cols-4 gap-1">
+          <div className="pt-1.5 border-t border-slate-800/60 text-xs text-slate-300 grid grid-cols-2 gap-1">
             <div>Fuse: {massBreakdown.fuselageGrams}g</div>
             <div>Wing: {massBreakdown.wingGrams}g</div>
             <div>Tail: {massBreakdown.tailGrams}g</div>

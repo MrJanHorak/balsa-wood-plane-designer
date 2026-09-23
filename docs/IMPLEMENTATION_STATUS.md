@@ -10,6 +10,9 @@
   selected states, and the wording of static-balance estimates were improved.
   Dark scrollbars now match the workspace, and the 2D pattern legend and sheet
   caption are easier to scan.
+- Raised tiny form and warning text, enlarged key actions, and made the fuselage
+  editor keyboard-usable with focus restoration and point nudging. The versions
+  and warning popovers also have clearer keyboard behavior and narrow-screen fit.
   See [the UI review](UI_UX_REVIEW_2026-09-23.md) for findings and the remaining
   typography, contrast, zoom, and keyboard audit.
 

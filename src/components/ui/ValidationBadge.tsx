@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { ValidationReport } from '@/geometry/validation';
 import { CheckCircle2, AlertTriangle, XCircle, ChevronDown, Wrench, ShieldAlert } from 'lucide-react';
 
@@ -11,6 +11,27 @@ interface ValidationBadgeProps {
 
 export const ValidationBadge: React.FC<ValidationBadgeProps> = ({ report }) => {
   const [isOpen, setIsOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const onPointerDown = (event: PointerEvent) => {
+      if (!rootRef.current?.contains(event.target as Node)) setIsOpen(false);
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setIsOpen(false);
+        triggerRef.current?.focus();
+      }
+    };
+    document.addEventListener('pointerdown', onPointerDown);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [isOpen]);
 
   const errorCount = report.errors.length;
   const warningCount = report.warnings.length;
@@ -30,8 +51,9 @@ export const ValidationBadge: React.FC<ValidationBadgeProps> = ({ report }) => {
   }
 
   return (
-    <div className="relative">
+    <div ref={rootRef} className="relative">
       <button
+        ref={triggerRef}
         type="button"
         onClick={() => setIsOpen(!isOpen)}
         aria-label={badgeText}
@@ -46,13 +68,13 @@ export const ValidationBadge: React.FC<ValidationBadgeProps> = ({ report }) => {
 
       {/* Popover Card */}
       {isOpen && (
-        <div className="absolute right-0 top-full mt-2 w-80 sm:w-96 p-3.5 bg-slate-900/95 backdrop-blur-md rounded-xl border border-slate-700/80 shadow-2xl z-50 text-slate-100 flex flex-col gap-2.5">
-          <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+        <div role="region" aria-label="Design check details" className="absolute left-0 top-full z-50 mt-2 flex w-[min(20rem,calc(100vw-1rem))] flex-col gap-2.5 rounded-xl border border-slate-700/80 bg-slate-900/95 p-3.5 text-slate-100 shadow-2xl backdrop-blur-md sm:left-auto sm:right-0 sm:w-96">
+            <div className="flex flex-wrap items-center justify-between gap-1 border-b border-slate-800 pb-2">
             <div className="flex items-center gap-1.5 font-bold text-xs">
               <ShieldAlert className="w-4 h-4 text-cyan-400" />
               <span>Geometry & Structural Integrity Audit</span>
             </div>
-            <span className="text-[10px] text-slate-400 font-mono">
+            <span className="text-xs text-slate-300 font-mono">
               {report.isValid ? '✓ Sound' : '⚠️ Action Needed'}
             </span>
           </div>
@@ -76,7 +98,7 @@ export const ValidationBadge: React.FC<ValidationBadgeProps> = ({ report }) => {
 
                 return (
                   <div key={issue.id} className={`p-2.5 rounded-lg border flex flex-col gap-1 ${borderClass}`}>
-                    <div className="flex items-center justify-between font-semibold">
+                    <div className="flex flex-wrap items-center justify-between gap-1 font-semibold">
                       <span className="flex items-center gap-1.5">
                         {isError ? (
                           <XCircle className="w-3.5 h-3.5 text-rose-400 shrink-0" />
@@ -85,15 +107,15 @@ export const ValidationBadge: React.FC<ValidationBadgeProps> = ({ report }) => {
                         )}
                         {issue.title}
                       </span>
-                      <span className="text-[9px] uppercase tracking-wide px-1.5 py-0.2 rounded bg-slate-950/40 font-mono">
+                      <span className="text-xs uppercase tracking-wide px-1.5 py-0.5 rounded bg-slate-950/40 font-mono">
                         {issue.category}
                       </span>
                     </div>
 
-                    <p className="text-[11px] text-slate-300 leading-snug">{issue.message}</p>
+                    <p className="text-xs text-slate-200 leading-relaxed">{issue.message}</p>
 
                     {issue.suggestedFix && (
-                      <div className="flex items-start gap-1 text-[10px] text-slate-400 pt-1 border-t border-slate-700/40">
+                      <div className="flex items-start gap-1 text-xs text-slate-300 pt-1 border-t border-slate-700/40">
                         <Wrench className="w-3 h-3 text-amber-300 shrink-0 mt-0.5" />
                         <span><strong>Fix:</strong> {issue.suggestedFix}</span>
                       </div>

@@ -209,7 +209,7 @@ export const ParametricControls: React.FC<ParametricControlsProps> = ({
                     key={opt.value}
                     onClick={() => updateWing({ planformType: opt.value })}
                     aria-pressed={glider.wing.planformType === opt.value}
-                    className={`py-1.5 px-1.5 text-[11px] font-semibold rounded-md border transition-colors ${
+                    className={`py-1.5 px-1.5 text-xs font-semibold rounded-md border transition-colors ${
                       glider.wing.planformType === opt.value
                         ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-md'
                         : 'bg-slate-800/60 text-slate-300 border-slate-700 hover:bg-slate-800'
@@ -337,7 +337,7 @@ export const ParametricControls: React.FC<ParametricControlsProps> = ({
                         },
                       });
                     }}
-                    className={`py-1.5 px-1.5 text-[11px] font-semibold rounded-md border transition-colors ${
+                    className={`py-1.5 px-1.5 text-xs font-semibold rounded-md border transition-colors ${
                       glider.fuselage.mountType === opt.value
                         ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-md'
                         : 'bg-slate-800/60 text-slate-300 border-slate-700 hover:bg-slate-800'
@@ -347,7 +347,7 @@ export const ParametricControls: React.FC<ParametricControlsProps> = ({
                   </button>
                 ))}
               </div>
-              <span className="text-[10px] text-slate-400 font-normal leading-tight block">
+              <span className="block text-xs font-normal leading-snug text-slate-300">
                 Controls how the wing physically joins the fuselage. The 3D model automatically
                 grows a saddle notch or support pylon so the wing is never left floating.
               </span>
@@ -496,10 +496,10 @@ export const ParametricControls: React.FC<ParametricControlsProps> = ({
               <h3 className="text-sm font-semibold mb-2">Vertical Fin</h3>
               <button onClick={onOpenFinEditor} className="w-full mb-3 rounded-lg border border-cyan-700 bg-cyan-950/40 p-2 text-xs text-cyan-200 hover:bg-cyan-900/50">{glider.verticalStabilizer.profileType === 'custom' ? 'Edit Custom Fin Shape' : 'Design Your Own Fin Shape'}</button>
               <label className="flex gap-2 text-xs text-slate-300 mb-2"><input type="checkbox" checked={glider.verticalStabilizer.isIntegralWithFuselage} onChange={e => onChange({ ...glider, verticalStabilizer: { ...glider.verticalStabilizer, isIntegralWithFuselage: e.target.checked } })} />Cut fin with the fuselage</label>
-              <p className="text-[11px] text-slate-400 mb-2">{glider.verticalStabilizer.isIntegralWithFuselage ? 'Custom fins embed 1 mm into the upper body near the tail mount.' : 'Separate fin appears as its own cut-sheet part for a glued attachment.'}</p>
+              <p className="text-xs text-slate-300 mb-2">{glider.verticalStabilizer.isIntegralWithFuselage ? 'Custom fins embed 1 mm into the upper body near the tail mount.' : 'Separate fin appears as its own cut-sheet part for a glued attachment.'}</p>
               <SliderInput label="Fin Height" value={glider.verticalStabilizer.heightMm} min={10} max={90} step={1} unit="mm" onChange={heightMm => updateFinSize({ heightMm })} />
               <SliderInput label="Fin Root Chord" value={glider.verticalStabilizer.rootChordMm} min={10} max={70} step={1} unit="mm" onChange={rootChordMm => updateFinSize({ rootChordMm })} />
-              <p className="text-[11px] text-slate-400">Fin edits affect weight and balance. Directional (yaw) stability is not yet simulated.</p>
+              <p className="text-xs text-slate-300">Fin edits affect weight and balance. Directional (yaw) stability is not yet simulated.</p>
             </div>
           </div>
         )}

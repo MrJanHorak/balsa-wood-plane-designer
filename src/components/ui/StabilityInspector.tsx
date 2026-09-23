@@ -146,11 +146,11 @@ export const StabilityInspector: React.FC<StabilityInspectorProps> = ({
             <ShieldAlert className="w-4 h-4 text-rose-400 shrink-0" />
             <span>Structural Issue: {validationReport.errors[0]?.title}</span>
           </div>
-          <p className="text-[11px] text-rose-200/90 leading-snug">
+          <p className="text-xs text-rose-200 leading-relaxed">
             {validationReport.errors[0]?.message}
           </p>
           {validationReport.errors[0]?.suggestedFix && (
-            <div className="flex items-start gap-1 text-[10px] text-amber-300 pt-0.5 border-t border-rose-500/30">
+            <div className="flex items-start gap-1 text-xs text-amber-300 pt-0.5 border-t border-rose-500/30">
               <Wrench className="w-3 h-3 text-amber-400 shrink-0 mt-0.5" />
               <span><strong>Fix:</strong> {validationReport.errors[0].suggestedFix}</span>
             </div>

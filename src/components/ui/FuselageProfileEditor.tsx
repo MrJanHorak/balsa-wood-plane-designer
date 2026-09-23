@@ -42,6 +42,13 @@ export const FuselageProfileEditor: React.FC<FuselageProfileEditorProps> = ({ gl
   const [dragging, setDragging] = useState(false);
   const dragStartNodesRef = useRef<FuselageNode[] | null>(null);
   const svgRef = useRef<SVGSVGElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    const previous = document.activeElement as HTMLElement | null;
+    dialogRef.current?.focus();
+    return () => previous?.focus();
+  }, []);
 
   const commit = useCallback(
     (nextNodes: FuselageNode[], previousNodes: FuselageNode[]) => {
@@ -207,24 +214,62 @@ export const FuselageProfileEditor: React.FC<FuselageProfileEditorProps> = ({ gl
 
   const selectedNode = nodes.find((n) => n.id === selectedId) ?? null;
 
+  const handleDialogKeyDown = (event: React.KeyboardEvent) => {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      onClose();
+      return;
+    }
+    if (event.key !== 'Tab') return;
+    const items = dialogRef.current?.querySelectorAll<HTMLElement | SVGElement>(
+      'button:not(:disabled), input:not(:disabled), select:not(:disabled), summary, [tabindex="0"]'
+    );
+    if (!items?.length) return;
+    const first = items[0], last = items[items.length - 1];
+    if (event.shiftKey && (document.activeElement === first || document.activeElement === dialogRef.current)) {
+      event.preventDefault(); last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault(); first.focus();
+    }
+  };
+
+  const handlePointKeyDown = (event: React.KeyboardEvent, node: FuselageNode) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault(); setSelectedId(node.id);
+      return;
+    }
+    const step = event.shiftKey ? 5 : 1;
+    const change = event.key === 'ArrowLeft' ? { xMm: -step, yMm: 0 }
+      : event.key === 'ArrowRight' ? { xMm: step, yMm: 0 }
+      : event.key === 'ArrowUp' ? { xMm: 0, yMm: step }
+      : event.key === 'ArrowDown' ? { xMm: 0, yMm: -step } : null;
+    if (!change) return;
+    event.preventDefault();
+    commit(nodes.map((point) => point.id === node.id
+      ? { ...point, xMm: point.xMm + change.xMm, yMm: point.yMm + change.yMm }
+      : point), nodes);
+    setSelectedId(node.id);
+  };
+
   return (
     <div className="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="w-full max-w-5xl h-[85vh] bg-slate-900 border border-slate-700 rounded-xl shadow-2xl flex flex-col overflow-hidden">
+      <div ref={dialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="fuselage-editor-title" onKeyDown={handleDialogKeyDown}
+        className="w-full max-w-5xl h-[85vh] bg-slate-900 border border-slate-700 rounded-xl shadow-2xl flex flex-col overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-slate-800 bg-slate-950/60">
           <div>
-            <h2 className="text-sm font-bold text-slate-100">Custom Fuselage Shape Designer</h2>
-            <p className="text-[11px] text-slate-400">
+            <h2 id="fuselage-editor-title" className="text-sm font-bold text-slate-100">Custom Fuselage Shape Designer</h2>
+            <p className="text-xs text-slate-300">
               Drag points to reshape the body. Click a point then use the buttons below to add or remove points.
             </p>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded hover:bg-slate-800 text-slate-400 hover:text-slate-100">
+          <button type="button" onClick={onClose} aria-label="Close fuselage shape editor" className="p-1.5 rounded hover:bg-slate-800 text-slate-400 hover:text-slate-100">
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Toolbar */}
-        <div className="flex items-center gap-2 px-4 py-2 border-b border-slate-800 bg-slate-900/60">
+        <div className="flex flex-wrap items-center gap-2 px-4 py-2 border-b border-slate-800 bg-slate-900/60">
           <button
             onClick={handleUndo}
             disabled={history.length === 0}
@@ -252,7 +297,7 @@ export const FuselageProfileEditor: React.FC<FuselageProfileEditorProps> = ({ gl
             <Trash2 className="w-3.5 h-3.5" />
             Delete Point
           </button>
-          <span className="text-[11px] text-slate-500">
+          <span className="text-xs text-slate-300">
             {selectedNode ? `Selected: ${selectedNode.label} (${selectedNode.xMm.toFixed(0)}, ${selectedNode.yMm.toFixed(0)}mm)` : 'Click a point to select it'}
           </span>
           <div className="flex-1" />
@@ -313,7 +358,15 @@ export const FuselageProfileEditor: React.FC<FuselageProfileEditorProps> = ({ gl
               return (
                 <g
                   key={`mid-${n.id}`}
+                  role="button"
+                  tabIndex={0}
+                  aria-label={`Add edge point after ${n.label}`}
                   onClick={() => handleInsertOnEdge(i)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault(); handleInsertOnEdge(i);
+                    }
+                  }}
                   className="cursor-pointer"
                   style={{ opacity: 0.5 }}
                 >
@@ -328,6 +381,9 @@ export const FuselageProfileEditor: React.FC<FuselageProfileEditorProps> = ({ gl
             {nodes.map((n) => (
               <circle
                 key={n.id}
+                role="button"
+                tabIndex={0}
+                aria-label={`Move ${n.label}, x ${n.xMm.toFixed(1)} mm, y ${n.yMm.toFixed(1)} mm`}
                 cx={n.xMm}
                 cy={n.yMm}
                 r={viewW / 130}
@@ -335,6 +391,8 @@ export const FuselageProfileEditor: React.FC<FuselageProfileEditorProps> = ({ gl
                 stroke="#0f172a"
                 strokeWidth={viewW / 400}
                 className="cursor-grab active:cursor-grabbing"
+                onFocus={() => setSelectedId(n.id)}
+                onKeyDown={(event) => handlePointKeyDown(event, n)}
                 onPointerDown={(e) => handlePointerDownNode(e, n.id)}
               />
             ))}
@@ -342,15 +400,17 @@ export const FuselageProfileEditor: React.FC<FuselageProfileEditorProps> = ({ gl
           </svg>
         </div>
 
-        {/* Footer note */}
-        <div className="flex items-start gap-2 px-4 py-2.5 border-t border-slate-800 bg-slate-950/60 text-[11px] text-slate-400">
-          <Info className="w-3.5 h-3.5 text-cyan-400 flex-shrink-0 mt-0.5" />
-          <span>
+        <details className="border-t border-slate-800 bg-slate-950/60 px-4 py-2.5 text-xs text-slate-300">
+          <summary className="flex cursor-pointer items-center gap-2 font-semibold text-cyan-200">
+            <Info className="h-3.5 w-3.5 flex-shrink-0" /> Editing tips and keyboard controls
+          </summary>
+          <p className="mt-2 leading-relaxed">
             The amber and cyan dashed boxes show where the wing and tail attach — keep your shape clear of them,
             or adjust the slot position/mount type in the Fuselage tab. Changes here update the 3D model, physics,
             and 2D cut pattern instantly. Small hollow dots on each edge add a new point.
-          </span>
-        </div>
+            Keyboard: Tab to a point, use arrow keys to move it 1 mm (Shift for 5 mm), or press Enter on a hollow dot to add a point.
+          </p>
+        </details>
       </div>
     </div>
   );
