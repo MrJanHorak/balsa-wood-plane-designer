@@ -1,19 +1,13 @@
 import { GliderDesign } from '@/types/glider';
 import { getWingBlank } from './wingBlank';
-import { generateFinFlatPattern, generateFuselageFlatPattern, generatePylonFlatPattern, generateTailFlatPattern, generateWingFlatPattern } from './patterns2d';
+import { getPrintParts } from './printLayout';
 
 const escapeXml = (text: string) => text.replace(/[<>&"']/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;', "'": '&apos;' }[c]!));
 
 /** Manufacturing geometry only. No preview backgrounds, labels or rulers become
  * accidental toolpaths. One SVG user unit is one physical millimetre. */
 export function exportPatternSvg(glider: GliderDesign): string {
-  const parts = [
-    { part: generateFuselageFlatPattern(glider), rotate: false, thickness: glider.fuselage.thicknessMm },
-    { part: generateWingFlatPattern(glider), rotate: true, thickness: glider.wing.thicknessMm },
-    { part: generateTailFlatPattern(glider), rotate: true, thickness: glider.horizontalStabilizer.thicknessMm },
-    ...(glider.fuselage.mountType === 'parasol_pylon' ? [{ part: generatePylonFlatPattern(glider), rotate: false, thickness: glider.fuselage.thicknessMm }] : []),
-    ...(!glider.verticalStabilizer.isIntegralWithFuselage ? [{ part: generateFinFlatPattern(glider), rotate: false, thickness: glider.verticalStabilizer.thicknessMm }] : []),
-  ];
+  const parts = getPrintParts(glider);
   const cuts: string[] = [], guides: string[] = [];
   let y = 10, width = 0;
   for (const { part, rotate, thickness } of parts) {

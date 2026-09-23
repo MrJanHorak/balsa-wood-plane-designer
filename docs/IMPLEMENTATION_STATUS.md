@@ -1,6 +1,19 @@
-# Implementation status — September 22, 2026
+# Implementation status — September 23, 2026
 
 ## Completed in this pass
+
+- Added lazy-loaded jsPDF vector export from the 2D Patterns view with A4 and US
+  Letter landscape options. Geometry shares the SVG part list; no screenshot scaling.
+- Each part is tiled at 1:1 with 10 mm overlap, matching registration marks, row and
+  column indices, per-part sheet thickness, solid cuts and dashed blue guides.
+  Every page has a 50 x 10 mm calibration box and Actual Size / 100% instructions.
+- The print packet includes paper assembly instructions, build limitations and the
+  current design warnings/errors. Physical paper calibration and prototype testing
+  are still required; a PDF export is not manufacturing approval.
+- Tests cover tile coverage, distance preservation, negative-coordinate outlines,
+  two-axis tiling, narrow-part registration and page-count limits. Generated A4 and
+  Letter trainer packets were rendered and visually checked (six pages each).
+  PDF page dimensions and calibration path lengths were also verified numerically.
 
 - Wing dihedral now bends around the root camber line so the cambered half-panel
   mean lines meet at the center. Rendering and fit calculations share the same
@@ -56,7 +69,7 @@
   Entering custom mode preserves the elliptical shape, mesh, and balance report.
 - Cut-sheet bounds account for the sampled fuselage curve's extrema.
 
-Verification: 168 tests, including analytical flat-wing relief, cambered root seam
+Verification: 176 tests, including print tiling and export, analytical flat-wing relief, cambered root seam
 continuity, assembled surface samples inside the relieved slot, independent numerical camber arc-length checks,
 blank mass versus aerodynamic area, physical SVG units, export parts/escaping,
 pylon dimensions/moments, fit warnings, net sheet area/centroid and preset ballast
@@ -73,8 +86,8 @@ needs a manual check in a normal browser/CAM application.
 
 ## Next implementation sequence
 
-1. **Buildable output:** add calibrated 1:1 tiled PDFs and assembly instructions,
-   separate fit-clearance controls from kerf, then add grain-aware layout.
+1. **Buildable output:** test the printed calibration and paper assembly on a real
+   printer; separate fit-clearance controls from kerf, then add grain-aware layout.
    Complete a physical cut-and-assemble trial before manufacturing sign-off.
 2. **Manufacturing refinements:** verify insertion paths and custom-fin attachment
    edge cases; develop full swept/tapered cambered-surface flattening. Audit wing/tail
@@ -86,6 +99,12 @@ needs a manual check in a normal browser/CAM application.
 4. **Educational flight testing:** build a bounded longitudinal simulation after
    establishing its force/moment assumptions; add guided challenges and shareable
    links later. Full VLM/XFOIL, flow simulation and built-up structures remain future work.
+
+Maintenance: npm audit reports the pre-existing moderate Vitest/@vitest/mocker
+advisory GHSA-82fw-gwwq-j7x9 in test tooling. Upgrade and verify Vitest separately;
+no jsPDF dependency advisory was reported by this audit. Two unused-variable lint
+warnings also remain. Browser PDF controls were exercised in the production build;
+the in-app browser's saved-download confirmation remains unavailable.
 
 Older architecture and implementation plans describe historical limitations; this
 file records the current next steps.

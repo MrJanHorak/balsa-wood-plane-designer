@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { GliderDesign } from '@/types/glider';
 import { exportPatternSvg } from '@/geometry/exportSvg';
 import { getWingBlank } from '@/geometry/wingBlank';
+import type { PrintPaper } from '@/geometry/printLayout';
 import {
   generateFuselageFlatPattern,
   generateTailFlatPattern,
@@ -86,6 +87,19 @@ export function layoutPart(part: FlatPartSvg, targetX: number, targetY: number, 
 
 export const Pattern2DViewport: React.FC<Pattern2DViewportProps> = ({ glider }) => {
   const [showRuler, setShowRuler] = useState(true);
+  const [paper, setPaper] = useState<PrintPaper>('a4');
+  const [printing, setPrinting] = useState(false);
+  const [printError, setPrintError] = useState('');
+  const downloadPdf = async () => {
+    setPrinting(true); setPrintError('');
+    try {
+      const { createPatternPdf } = await import('@/geometry/exportPdf');
+      const name = glider.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'glider';
+      createPatternPdf(glider, paper).save(`${name}-${paper}-100-percent.pdf`);
+    } catch (error) {
+      setPrintError(error instanceof Error ? error.message : 'Could not create the PDF. Please try again.');
+    } finally { setPrinting(false); }
+  };
 
   const fuselage = generateFuselageFlatPattern(glider);
   const wing = generateWingFlatPattern(glider);
@@ -148,7 +162,7 @@ export const Pattern2DViewport: React.FC<Pattern2DViewportProps> = ({ glider }) 
   return (
     <div className="relative w-full h-full flex flex-col bg-slate-950 text-slate-100 overflow-hidden select-none">
       {/* Top Controls Bar */}
-      <div className="flex items-center justify-between p-3 border-b border-slate-800 bg-slate-900/60 backdrop-blur-md">
+      <div className="flex flex-wrap gap-2 items-center justify-between p-3 border-b border-slate-800 bg-slate-900/60 backdrop-blur-md">
         <div className="flex items-center gap-2">
           <Scissors className="w-4 h-4 text-amber-400" />
           <span className="font-semibold text-sm">2D Flat Cut Pattern</span>
@@ -158,7 +172,13 @@ export const Pattern2DViewport: React.FC<Pattern2DViewportProps> = ({ glider }) 
         </div>
 
         {/* View Options & Download */}
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <select aria-label="PDF paper size" value={paper} onChange={event => setPaper(event.target.value as PrintPaper)} className="bg-slate-800 border border-slate-700 rounded px-2 py-1 text-xs">
+            <option value="a4">A4</option><option value="letter">US Letter</option>
+          </select>
+          <button onClick={downloadPdf} disabled={printing} className="px-3 py-1 text-xs font-semibold rounded bg-cyan-400 text-slate-950 disabled:opacity-50">
+            {printing ? 'Preparing PDF...' : 'Print PDF (1:1)'}
+          </button>
           <button
             onClick={() => setShowRuler(!showRuler)}
             className={`px-2.5 py-1 text-xs rounded border transition-colors flex items-center gap-1.5 ${
@@ -181,8 +201,10 @@ export const Pattern2DViewport: React.FC<Pattern2DViewportProps> = ({ glider }) 
         </div>
       </div>
 
+      {printError && <p role="alert" className="px-3 py-2 text-xs text-rose-300">{printError}</p>}
+
       {/* SVG Canvas Area */}
-      <div className="flex-1 overflow-auto p-6 flex items-center justify-center bg-[radial-gradient(#1e293b_1px,transparent_1px)] [background-size:16px_16px]">
+      <div className="flex-1 overflow-auto p-6 flex items-start justify-center bg-[radial-gradient(#1e293b_1px,transparent_1px)] [background-size:16px_16px]">
         <div className="relative p-6 rounded-xl border border-slate-800 bg-slate-900/80 shadow-2xl overflow-hidden max-w-full">
           {/* Legend Banner */}
           <div className="flex items-center gap-6 mb-4 text-xs text-slate-400">
