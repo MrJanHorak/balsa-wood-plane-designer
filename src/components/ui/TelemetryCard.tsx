@@ -18,7 +18,7 @@ export const TelemetryCard: React.FC<TelemetryCardProps> = ({ aeroReport, mode }
       <div className="flex items-center gap-2 border-b border-slate-800 pb-2">
         <Gauge className="w-4 h-4 text-cyan-400" />
         <h3 className="font-bold text-sm text-slate-100">
-          {isSimple ? 'Design Stats & Flight Estimates' : 'Geometry & Low-Order Aerodynamic Estimates'}
+          {isSimple ? 'Design Estimates' : 'Geometry & Balance Estimates'}
         </h3>
       </div>
 

@@ -115,7 +115,7 @@ export const Glider3DViewport: React.FC<Glider3DViewportProps> = ({ glider, aero
     scene.add(dirLight2);
 
     // Grid Floor
-    const grid = new THREE.GridHelper(600, 60, 0x334155, 0x1e293b);
+    const grid = new THREE.GridHelper(600, 60, 0x26354b, 0x192335);
     grid.position.set(120, -10, 0);
     scene.add(grid);
     gridHelperRef.current = grid;
@@ -247,11 +247,13 @@ export const Glider3DViewport: React.FC<Glider3DViewportProps> = ({ glider, aero
       <div ref={containerRef} className="w-full flex-1 cursor-grab active:cursor-grabbing" />
 
       {/* Top Floating Control Bar */}
-      <div className="absolute top-3 left-3 right-3 flex items-center justify-between pointer-events-none">
+      <div className="pointer-events-none absolute left-3 right-3 top-3 flex flex-wrap items-start justify-between gap-2">
         {/* Camera Views Preset Toolbar */}
-        <div className="flex items-center gap-1 bg-slate-900/85 backdrop-blur-md p-1.5 rounded-lg border border-slate-700/60 shadow-lg pointer-events-auto">
+        <div className="pointer-events-auto flex max-w-full items-center gap-1 overflow-x-auto rounded-lg border border-slate-700/60 bg-slate-900/90 p-1.5 shadow-lg backdrop-blur-md">
           <button
+            type="button"
             onClick={() => setCameraView('perspective')}
+            aria-pressed={currentView === 'perspective'}
             className={`px-2.5 py-1 text-xs font-medium rounded transition-colors ${
               currentView === 'perspective'
                 ? 'bg-amber-500 text-slate-950 font-semibold'
@@ -261,41 +263,53 @@ export const Glider3DViewport: React.FC<Glider3DViewportProps> = ({ glider, aero
             Perspective
           </button>
           <button
+            type="button"
             onClick={() => setCameraView('top')}
+            aria-label="Top planform view"
+            aria-pressed={currentView === 'top'}
             className={`px-2.5 py-1 text-xs font-medium rounded transition-colors ${
               currentView === 'top'
                 ? 'bg-amber-500 text-slate-950 font-semibold'
                 : 'text-slate-300 hover:bg-slate-800'
             }`}
           >
-            Top (Planform)
+            Top<span className="hidden sm:inline"> (Planform)</span>
           </button>
           <button
+            type="button"
             onClick={() => setCameraView('side')}
+            aria-label="Side profile view"
+            aria-pressed={currentView === 'side'}
             className={`px-2.5 py-1 text-xs font-medium rounded transition-colors ${
               currentView === 'side'
                 ? 'bg-amber-500 text-slate-950 font-semibold'
                 : 'text-slate-300 hover:bg-slate-800'
             }`}
           >
-            Side (Profile)
+            Side<span className="hidden sm:inline"> (Profile)</span>
           </button>
           <button
+            type="button"
             onClick={() => setCameraView('front')}
+            aria-label="Front dihedral view"
+            aria-pressed={currentView === 'front'}
             className={`px-2.5 py-1 text-xs font-medium rounded transition-colors ${
               currentView === 'front'
                 ? 'bg-amber-500 text-slate-950 font-semibold'
                 : 'text-slate-300 hover:bg-slate-800'
             }`}
           >
-            Front (Dihedral)
+            Front<span className="hidden sm:inline"> (Dihedral)</span>
           </button>
         </div>
 
         {/* Viewport Display Toggles */}
-        <div className="flex items-center gap-1.5 bg-slate-900/85 backdrop-blur-md p-1.5 rounded-lg border border-slate-700/60 shadow-lg pointer-events-auto">
+        <div className="pointer-events-auto flex max-w-full items-center gap-1.5 overflow-x-auto rounded-lg border border-slate-700/60 bg-slate-900/90 p-1.5 shadow-lg backdrop-blur-md">
           <button
+            type="button"
             onClick={() => setShowGizmos(!showGizmos)}
+            aria-label="Show center of gravity and neutral point markers"
+            aria-pressed={showGizmos}
             title="Toggle CG & Neutral Point Gizmos"
             className={`p-1.5 rounded text-xs flex items-center gap-1 transition-colors ${
               showGizmos ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40' : 'text-slate-400 hover:bg-slate-800'
@@ -306,7 +320,10 @@ export const Glider3DViewport: React.FC<Glider3DViewportProps> = ({ glider, aero
           </button>
 
           <button
+            type="button"
             onClick={() => setShowAeroCenters(!showAeroCenters)}
+            aria-label="Show wing and tail aerodynamic centers"
+            aria-pressed={showAeroCenters}
             title="Toggle Wing & Tail Aerodynamic Centers"
             className={`p-1.5 rounded text-xs flex items-center gap-1 transition-colors ${
               showAeroCenters ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/40' : 'text-slate-400 hover:bg-slate-800'
@@ -317,7 +334,10 @@ export const Glider3DViewport: React.FC<Glider3DViewportProps> = ({ glider, aero
           </button>
 
           <button
+            type="button"
             onClick={() => setShowGrid(!showGrid)}
+            aria-label="Show ground grid"
+            aria-pressed={showGrid}
             title="Toggle Ground Plane Grid"
             className={`p-1.5 rounded text-xs transition-colors ${
               showGrid ? 'bg-slate-700 text-slate-200' : 'text-slate-400 hover:bg-slate-800'
@@ -327,7 +347,10 @@ export const Glider3DViewport: React.FC<Glider3DViewportProps> = ({ glider, aero
           </button>
 
           <button
+            type="button"
             onClick={() => setIsWireframe(!isWireframe)}
+            aria-label="Show wireframe"
+            aria-pressed={isWireframe}
             title="Toggle Wireframe CAD Mode"
             className={`p-1.5 rounded text-xs transition-colors ${
               isWireframe ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40' : 'text-slate-400 hover:bg-slate-800'
@@ -337,7 +360,9 @@ export const Glider3DViewport: React.FC<Glider3DViewportProps> = ({ glider, aero
           </button>
 
           <button
+            type="button"
             onClick={() => setCameraView('perspective')}
+            aria-label="Reset camera to perspective view"
             title="Reset Camera Target"
             className="p-1.5 rounded text-slate-400 hover:bg-slate-800 transition-colors"
           >

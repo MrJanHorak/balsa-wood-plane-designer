@@ -3,7 +3,7 @@
 import React, { useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { GliderDesign, UIMode } from '@/types/glider';
 import { FlightTestRecord, PlaneDesignDocument } from '@/types/design-document';
-import { DEFAULT_GLIDER } from '@/constants/presets';
+import { DEFAULT_GLIDER, GLIDER_PRESETS } from '@/constants/presets';
 import { analyzeGliderStability } from '@/physics/stability';
 import { validateGliderDesign } from '@/geometry/validation';
 import {
@@ -49,6 +49,8 @@ export default function WorkbenchPage() {
   const sliderEditingRef = useRef(false);
 
   const glider = design.geometry;
+  const matchingPreset = Object.values(GLIDER_PRESETS).find((preset) =>
+    JSON.stringify({ ...glider, mode: preset.mode }) === JSON.stringify(preset));
   const saveStatus = savedDocument && JSON.stringify(savedDocument) === JSON.stringify(design) ? 'saved' : 'unsaved';
 
   useEffect(() => {
@@ -268,7 +270,7 @@ export default function WorkbenchPage() {
   };
 
   return (
-    <div className="flex flex-col h-screen w-screen overflow-hidden bg-slate-950 text-slate-100 font-sans">
+    <div className="flex min-h-dvh w-full flex-col bg-slate-950 font-sans text-slate-100 xl:h-dvh xl:overflow-hidden">
       <input
         ref={fileInputRef}
         type="file"
@@ -279,7 +281,7 @@ export default function WorkbenchPage() {
 
       {/* Top Navigation & App Bar */}
       <Header
-        currentPresetId={glider.id}
+        currentPresetId={matchingPreset?.id ?? ''}
         mode={mode}
         activeViewport={activeViewport}
         designName={design.metadata.name}
@@ -309,9 +311,9 @@ export default function WorkbenchPage() {
       )}
 
       {/* Main 3-Column Engineering Studio */}
-      <main className="flex-1 flex flex-col md:flex-row min-h-0 overflow-hidden relative">
+      <main className="relative grid min-h-0 flex-1 grid-cols-1 md:grid-cols-2 xl:flex xl:flex-row xl:overflow-hidden">
         {/* Left Sidebar: Parametric Sliders */}
-        <div className="w-full md:w-80 lg:w-96 flex-shrink-0 h-1/3 md:h-full p-2.5 overflow-hidden flex flex-col border-r border-slate-800 bg-slate-950/70 z-20"
+        <div className="z-20 flex h-[min(65vh,40rem)] min-h-80 w-full flex-shrink-0 flex-col overflow-hidden border-b border-slate-800 bg-slate-950/70 p-2.5 md:border-r xl:h-full xl:min-h-0 xl:w-80 xl:border-b-0 2xl:w-96"
           onPointerDownCapture={beginSliderEdit}
           onKeyDownCapture={(event) => { if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End', 'PageUp', 'PageDown'].includes(event.key)) beginSliderEdit(event); }}
           onKeyUpCapture={endSliderEdit}
@@ -328,7 +330,7 @@ export default function WorkbenchPage() {
         </div>
 
         {/* Center Viewport: 3D Three.js Assembled View or 2D Vector Cut Patterns */}
-        <div className="flex-1 h-full relative overflow-hidden bg-slate-950">
+        <div className="relative order-first h-[55vh] min-h-80 w-full overflow-hidden bg-slate-950 md:col-span-2 xl:order-none xl:h-full xl:min-h-0 xl:min-w-0 xl:flex-1">
           {activeViewport === '3d' ? (
             <Glider3DViewport glider={glider} aeroReport={aeroReport} />
           ) : (
@@ -337,7 +339,7 @@ export default function WorkbenchPage() {
         </div>
 
         {/* Right Sidebar: Flight Deck & Stability Inspector */}
-        <div className="w-full md:w-84 lg:w-96 flex-shrink-0 h-auto md:h-full p-2.5 overflow-y-auto flex flex-col gap-2.5 border-l border-slate-800 bg-slate-950/70 z-20">
+        <div className="z-20 flex h-auto w-full flex-shrink-0 flex-col gap-2.5 border-t border-slate-800 bg-slate-950/70 p-2.5 md:border-t-0 xl:h-full xl:w-80 xl:overflow-y-auto xl:border-l 2xl:w-96">
           <StabilityInspector
             glider={glider}
             aeroReport={aeroReport}

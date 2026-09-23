@@ -134,7 +134,9 @@ export const ParametricControls: React.FC<ParametricControlsProps> = ({
       {/* Section Tabs */}
       <div className="flex border-b border-slate-800 bg-slate-950/60 p-1 gap-1">
         <button
+          type="button"
           onClick={() => setActiveSection('wing')}
+          aria-pressed={activeSection === 'wing'}
           className={`flex-1 py-2 px-1 text-xs font-semibold rounded-lg flex items-center justify-center gap-1.5 transition-colors ${
             activeSection === 'wing'
               ? 'bg-amber-500 text-slate-950 shadow-md'
@@ -146,7 +148,9 @@ export const ParametricControls: React.FC<ParametricControlsProps> = ({
         </button>
 
         <button
+          type="button"
           onClick={() => setActiveSection('fuse')}
+          aria-pressed={activeSection === 'fuse'}
           className={`flex-1 py-2 px-1 text-xs font-semibold rounded-lg flex items-center justify-center gap-1.5 transition-colors ${
             activeSection === 'fuse'
               ? 'bg-amber-500 text-slate-950 shadow-md'
@@ -158,7 +162,9 @@ export const ParametricControls: React.FC<ParametricControlsProps> = ({
         </button>
 
         <button
+          type="button"
           onClick={() => setActiveSection('tail')}
+          aria-pressed={activeSection === 'tail'}
           className={`flex-1 py-2 px-1 text-xs font-semibold rounded-lg flex items-center justify-center gap-1.5 transition-colors ${
             activeSection === 'tail'
               ? 'bg-amber-500 text-slate-950 shadow-md'
@@ -170,7 +176,9 @@ export const ParametricControls: React.FC<ParametricControlsProps> = ({
         </button>
 
         <button
+          type="button"
           onClick={() => setActiveSection('ballast')}
+          aria-pressed={activeSection === 'ballast'}
           className={`flex-1 py-2 px-1 text-xs font-semibold rounded-lg flex items-center justify-center gap-1.5 transition-colors ${
             activeSection === 'ballast'
               ? 'bg-amber-500 text-slate-950 shadow-md'
@@ -197,8 +205,10 @@ export const ParametricControls: React.FC<ParametricControlsProps> = ({
               <div className="grid grid-cols-2 gap-1.5">
                 {PLANFORM_OPTIONS.map((opt) => (
                   <button
+                    type="button"
                     key={opt.value}
                     onClick={() => updateWing({ planformType: opt.value })}
+                    aria-pressed={glider.wing.planformType === opt.value}
                     className={`py-1.5 px-1.5 text-[11px] font-semibold rounded-md border transition-colors ${
                       glider.wing.planformType === opt.value
                         ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-md'
@@ -219,7 +229,7 @@ export const ParametricControls: React.FC<ParametricControlsProps> = ({
               max={550}
               step={5}
               unit="mm"
-              description="Total tip-to-tip span. Wider wings glide further with less drag."
+              description="Total tip-to-tip span. Changing span affects wing area, mass, and drag."
               isSimpleMode={isSimple}
               onChange={(v) => updateWing({ spanMm: v })}
             />
@@ -246,7 +256,7 @@ export const ParametricControls: React.FC<ParametricControlsProps> = ({
                 max={80}
                 step={1}
                 unit="mm"
-                description="Width at wingtips. Tapered tips reduce induced drag."
+                description="Width at wingtips. Taper changes area, weight, and the lift distribution."
                 isSimpleMode={isSimple}
                 onChange={(v) => updateWing({ tipChordMm: v })}
               />
@@ -260,7 +270,7 @@ export const ParametricControls: React.FC<ParametricControlsProps> = ({
               max={15}
               step={0.5}
               unit="°"
-              description="Angles wings up in a 'V'. Essential to keep glider from rolling over!"
+              description="Target upward wing angle for roll self-leveling. Form the built wing to match."
               isSimpleMode={isSimple}
               onChange={(v) => updateWing({ dihedralDeg: v })}
             />
@@ -286,7 +296,7 @@ export const ParametricControls: React.FC<ParametricControlsProps> = ({
               max={8}
               step={0.5}
               unit="%"
-              description="Pre-forming wood curvature adds aerodynamic lift."
+              description="Target wing curvature after forming; the flat cutout will not curve by itself."
               isSimpleMode={isSimple}
               onChange={(v) => updateWing({ camberPercent: v })}
             />

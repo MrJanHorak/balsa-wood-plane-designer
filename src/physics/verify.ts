@@ -1,4 +1,4 @@
-import { DEFAULT_GLIDER, GLIDER_PRESETS } from '../constants/presets';
+import { GLIDER_PRESETS } from '../constants/presets';
 import { analyzeGliderStability } from './stability';
 
 console.log('--- TESTING BALSA GLIDER PHYSICS ENGINE ---');

@@ -1,5 +1,16 @@
 # Implementation status — September 23, 2026
 
+## Workbench usability review
+
+- Reviewed the current workbench at phone, tablet, and desktop widths. The
+  mobile header now wraps without horizontal scrolling, the preview appears
+  before controls, tablet width uses two lower panels, and wide screens retain
+  the three-column studio.
+- Slider labeling, helper-text size, keyboard focus, accessible names and
+  selected states, and the wording of static-balance estimates were improved.
+  See [the UI review](UI_UX_REVIEW_2026-09-23.md) for findings and the remaining
+  typography, contrast, zoom, and keyboard audit.
+
 ## First flight feedback and measurement loop
 
 - The user built and flew the saved Sky Scout design. Print calibration and tile

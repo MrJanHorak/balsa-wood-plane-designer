@@ -1,10 +1,9 @@
 'use client';
 
 import React from 'react';
-import confetti from 'canvas-confetti';
 import { GliderAeroReport, GliderDesign, UIMode } from '@/types/glider';
 import { ValidationReport } from '@/geometry/validation';
-import { Sparkles, AlertTriangle, CheckCircle2, ArrowDown, Scale, Compass, Wrench, ShieldAlert } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Scale, Compass, Wrench, ShieldAlert } from 'lucide-react';
 
 interface StabilityInspectorProps {
   glider: GliderDesign;
@@ -24,19 +23,8 @@ export const StabilityInspector: React.FC<StabilityInspectorProps> = ({
   const isSimple = mode === 'simple';
   const { stabilityStatus, staticMarginPercent, recommendedBallastGrams } = aeroReport;
 
-  // Trigger cheerful confetti celebration when student balances the plane
   const handleAutoBalance = () => {
     onApplyBallast(recommendedBallastGrams);
-    try {
-      confetti({
-        particleCount: 50,
-        spread: 60,
-        origin: { y: 0.8 },
-        colors: ['#fbbf24', '#06b6d4', '#10b981'],
-      });
-    } catch {
-      // ignore
-    }
   };
 
   // Status Styling
@@ -81,7 +69,7 @@ export const StabilityInspector: React.FC<StabilityInspectorProps> = ({
   return (
     <div className="flex flex-col gap-3 p-4 rounded-xl border border-slate-800 bg-slate-900/90 backdrop-blur-md shadow-xl">
       {/* Title & Status Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <Scale className="w-5 h-5 text-amber-400" />
           <h3 className="font-bold text-sm text-slate-100">
@@ -96,7 +84,7 @@ export const StabilityInspector: React.FC<StabilityInspectorProps> = ({
 
       {/* Visual Glider Fuselage Balance Beam */}
       <div className="space-y-1 pt-1">
-        <div className="flex justify-between text-[11px] text-slate-400">
+        <div className="flex justify-between text-xs text-slate-300">
           <span>Nose (0mm)</span>
           <span className="text-slate-500 font-mono">Fuselage Profile ({fuseLen}mm)</span>
           <span>Tail</span>
@@ -133,7 +121,7 @@ export const StabilityInspector: React.FC<StabilityInspectorProps> = ({
         </div>
 
         {/* Legend beneath beam */}
-        <div className="flex items-center justify-between text-[11px] pt-0.5">
+        <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 pt-0.5 text-xs">
           <div className="flex items-center gap-1.5">
             <span className="inline-block w-2.5 h-2.5 rounded-full bg-[conic-gradient(#111827_0deg_90deg,#fbbf24_90deg_180deg,#111827_180deg_270deg,#fbbf24_270deg_360deg)]" />
             <span className="text-amber-300 font-medium">CG: {aeroReport.cgXMm.toFixed(1)}mm</span>
@@ -175,16 +163,16 @@ export const StabilityInspector: React.FC<StabilityInspectorProps> = ({
         <div className="flex-shrink-0 mt-0.5">{colors.icon}</div>
         <div className="flex-1 text-xs space-y-1">
           <p className="font-medium leading-relaxed">{aeroReport.educationalFeedback}</p>
-          <p className="text-[11px] text-slate-400">
-            <strong>Expected Behavior:</strong> {aeroReport.pitchTendencyDescription}
+          <p className="text-xs text-slate-300">
+            <strong>Model indication:</strong> {aeroReport.pitchTendencyDescription}
           </p>
         </div>
       </div>
 
       {/* Auto-Balance Ballast Action */}
-      <div className="flex items-center justify-between pt-1">
+      <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
         <div className="text-xs">
-          <span className="text-slate-400">Recommended Nose Clay: </span>
+          <span className="text-slate-300">Estimated nose ballast: </span>
           <span className="font-bold text-amber-300">{recommendedBallastGrams}g</span>
         </div>
 
@@ -193,8 +181,7 @@ export const StabilityInspector: React.FC<StabilityInspectorProps> = ({
           disabled={Math.abs(glider.fuselage.noseBallastGrams - recommendedBallastGrams) < 0.05}
           className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-amber-500 hover:bg-amber-400 disabled:opacity-40 disabled:cursor-not-allowed text-slate-950 transition-all flex items-center gap-1.5 shadow-md active:scale-95"
         >
-          <Sparkles className="w-3.5 h-3.5" />
-          <span>Auto-Balance ({recommendedBallastGrams}g)</span>
+          <span>Set design ballast ({recommendedBallastGrams}g)</span>
         </button>
       </div>
     </div>

@@ -68,7 +68,7 @@ export function DesignHistoryControls({
           <Redo2 className="h-4 w-4" />
         </button>
       </div>
-      <button type="button" aria-expanded={open} aria-haspopup="dialog" onClick={togglePanel}
+      <button type="button" aria-label={`Named versions, ${versions.length} saved`} aria-expanded={open} aria-haspopup="dialog" onClick={togglePanel}
         className="flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800/80 px-2.5 py-2 text-xs font-semibold text-slate-100 hover:bg-slate-700">
         <History className="h-4 w-4 text-amber-300" />
         <span className="hidden xl:inline">Versions</span>

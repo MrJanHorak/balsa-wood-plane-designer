@@ -32,7 +32,10 @@ export const ValidationBadge: React.FC<ValidationBadgeProps> = ({ report }) => {
   return (
     <div className="relative">
       <button
+        type="button"
         onClick={() => setIsOpen(!isOpen)}
+        aria-label={badgeText}
+        aria-expanded={isOpen}
         className={`flex items-center gap-1.5 px-2.5 py-1 text-xs rounded-lg border font-medium transition-all shadow-sm ${badgeColor}`}
         title="Check physical manufacturability, structural margins, and material fit"
       >
