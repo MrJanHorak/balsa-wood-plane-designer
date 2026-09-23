@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_GLIDER } from '@/constants/presets';
+import { DEFAULT_GLIDER, GLIDER_PRESETS } from '@/constants/presets';
 import {
   createPlaneDesignDocument,
   deserializePlaneDesign,
@@ -20,6 +20,29 @@ function createTestDesign() {
 }
 
 describe('PlaneDesignDocument', () => {
+  it.each(Object.values(GLIDER_PRESETS))('accepts the $name preset and legacy optional tail fields', preset => {
+    const doc = createPlaneDesignDocument(preset);
+    delete doc.geometry.horizontalStabilizer.planformType;
+    delete doc.geometry.verticalStabilizer.profileType;
+    expect(isPlaneDesignDocument(doc)).toBe(true);
+  });
+
+  it.each([
+    ['material', undefined], ['wing', []], ['fuselage', {}],
+    ['wing', { ...DEFAULT_GLIDER.wing, spanMm: 0 }],
+    ['wing', { ...DEFAULT_GLIDER.wing, sweepDeg: Infinity }],
+    ['wing', { ...DEFAULT_GLIDER.wing, camberPercent: '4' }],
+    ['material', { ...DEFAULT_GLIDER.material, densityKgM3: -1 }],
+    ['fuselage', { ...DEFAULT_GLIDER.fuselage, wingSlot: null }],
+    ['fuselage', { ...DEFAULT_GLIDER.fuselage, profileStyle: 'custom', customNodes: [null] }],
+    ['horizontalStabilizer', { ...DEFAULT_GLIDER.horizontalStabilizer, planformType: 'unknown' }],
+    ['verticalStabilizer', { ...DEFAULT_GLIDER.verticalStabilizer, heightMm: NaN }],
+  ])('rejects malformed %s before geometry calculations', (key, value) => {
+    const doc = createTestDesign();
+    Object.assign(doc.geometry, { [key as string]: value });
+    expect(isPlaneDesignDocument(doc)).toBe(false);
+    expect(() => deserializePlaneDesign(JSON.stringify(doc))).toThrow(/invalid/);
+  });
   it('wraps the existing GliderDesign without changing it', () => {
     const document = createTestDesign();
 

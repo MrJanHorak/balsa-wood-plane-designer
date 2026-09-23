@@ -2,6 +2,7 @@ import { GliderDesign, GliderMassBreakdown, getEffectiveTipChordMm, getWingPlanf
 import { getTailPlanformPoints } from '@/geometry/customWing';
 import { getFinProfilePoints } from '@/geometry/customFin';
 import polygonClipping from 'polygon-clipping';
+import { calculateSheetProperties, getFuselageCuts, subtractSheetCutouts } from '@/geometry/sheetCutouts';
 import {
   Point2D,
   polygonArea,
@@ -207,11 +208,11 @@ export function calculateGliderMassAndCG(glider: GliderDesign): {
   // Convert density: 1 kg/m³ = 1e-6 g/mm³
   const densityGPerMm3 = balsaDensityKgM3 * 1e-6;
 
-  // 1. Fuselage — sampled on the smooth Catmull-Rom contour matching the 3D
-  // model and the 2D cut pattern, rather than a coarse polygon approximation.
+  // 1. Fuselage — use the same contour and physical cuts as the 3D model and
+  // SVG pattern; holes remove both mass and first moments from the sheet.
   const fusePoly = getFuselageContourPoints(glider);
-  const fuseAreaMm2 = polygonArea(fusePoly);
-  const { x: fuseCx, y: fuseCy } = polygonCentroid(fusePoly);
+  const { areaMm2: fuseAreaMm2, centroid: { x: fuseCx, y: fuseCy } } =
+    calculateSheetProperties(subtractSheetCutouts(fusePoly, getFuselageCuts(glider)));
   const fuseVolumeMm3 = fuseAreaMm2 * glider.fuselage.thicknessMm;
   const fuselageGrams = fuseVolumeMm3 * densityGPerMm3;
 
@@ -279,7 +280,6 @@ export function calculateGliderMassAndCG(glider: GliderDesign): {
     finGrams * finCy;
 
   const unballastedCgXMm = unballastedMassGrams > 0 ? unballastedMomentX / unballastedMassGrams : 0;
-  const unballastedCgYMm = unballastedMassGrams > 0 ? unballastedMomentY / unballastedMassGrams : 0;
 
   // 6. Nose Ballast
   const ballastGrams = Math.max(0, glider.fuselage.noseBallastGrams);

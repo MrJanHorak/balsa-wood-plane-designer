@@ -1,12 +1,11 @@
 import * as THREE from 'three';
 import { getFinProfilePoints } from './customFin';
 import { getTailPlanformPoints, seedWingNodes } from './customWing';
-import { subtractSheetCutouts } from './sheetCutouts';
+import { getFuselageCuts, subtractSheetCutouts } from './sheetCutouts';
 import { GliderDesign, getEffectiveTipChordMm, getWingPlanformKind } from '@/types/glider';
 import { getFuselageContourPoints } from '@/physics/massBalance';
 import {
   getWingStationAt,
-  calculateSlotPoints,
   getCamberElevation,
 } from '@/geometry/core';
 
@@ -72,10 +71,7 @@ export function createFuselageMesh(glider: GliderDesign, balsaMaterial: THREE.Ma
   const { fuselage } = glider;
   const contourPoints = getFuselageContourPoints(glider);
 
-  const cuts = [calculateSlotPoints(fuselage.tailSlot)];
-  if (fuselage.mountType === 'through_slot') {
-    cuts.push(calculateSlotPoints(fuselage.wingSlot, glider.wing.rootChordMm, glider.wing.camberPercent));
-  }
+  const cuts = getFuselageCuts(glider);
   const shapes = subtractSheetCutouts(contourPoints, cuts).map(region => {
     const shape = new THREE.Shape(region.outline.map(p => new THREE.Vector2(p.x, p.y)));
     shape.holes = region.holes.map(hole => new THREE.Path(hole.map(p => new THREE.Vector2(p.x, p.y))));

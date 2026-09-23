@@ -9,7 +9,7 @@ import {
 import { getFuselageContourPoints } from '@/physics/massBalance';
 import { analyzeGliderStability } from '@/physics/stability';
 import { validateCustomWing, tailAsWing } from './customWing';
-import { subtractSheetCutouts } from './sheetCutouts';
+import { getFuselageCuts, subtractSheetCutouts } from './sheetCutouts';
 import { validateCustomFin } from './customFin';
 
 export type ValidationSeverity = 'error' | 'warning' | 'info';
@@ -121,8 +121,7 @@ export function validateGliderDesign(
   }
   const { fuselage, wing } = glider;
   const fuselagePoints = getFuselageContourPoints(glider);
-  const slotCuts = [calculateSlotPoints(fuselage.tailSlot)];
-  if (fuselage.mountType === 'through_slot') slotCuts.push(calculateSlotPoints(fuselage.wingSlot, wing.rootChordMm, wing.camberPercent));
+  const slotCuts = getFuselageCuts(glider);
   const remainingSheet = subtractSheetCutouts(fuselagePoints, slotCuts);
   if (remainingSheet.length !== 1) {
     issues.push({ id: 'fuselage_cut_disconnect', severity: 'error', category: 'structural',

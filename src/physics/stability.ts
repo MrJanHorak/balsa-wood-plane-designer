@@ -32,35 +32,35 @@ export function analyzeGliderStability(glider: GliderDesign): GliderAeroReport {
 
   // 6. Stability Status & Educational Coaching
   let stabilityStatus: StabilityStatus = 'optimal';
-  let statusBadgeText = 'Optimal Glide Balance';
+  let statusBadgeText = 'Estimated Balance in Target Range';
   let educationalFeedback =
-    'Your glider has positive longitudinal static stability! When pitched up by a breeze, it will naturally trim back down into a smooth glide.';
-  let pitchTendencyDescription = 'Self-righting, gentle floating glide with stable pitch restoration.';
+    'The estimated balance is in the target range for this model. This is a static balance check; trim, launch technique and construction also affect the flight.';
+  let pitchTendencyDescription = 'Estimated restoring pitch tendency; glide and trim are not simulated.';
 
   if (staticMarginPercent < -2.0) {
     stabilityStatus = 'critically_tail_heavy';
-    statusBadgeText = 'Severely Tail-Heavy (Stall Danger)';
+    statusBadgeText = 'CG Behind Estimated Neutral Point';
     educationalFeedback =
-      'Center of Gravity is behind the Neutral Point! The glider will violently pitch upward on launch, stall, flip, and crash.';
-    pitchTendencyDescription = 'Immediate pitch-up flip and flat spin.';
+      'The CG is behind the estimated neutral point, indicating an unstable pitch tendency in this model. Move the balance forward and recheck before a gentle test launch.';
+    pitchTendencyDescription = 'Estimated destabilizing pitch tendency; a flight trajectory is not predicted.';
   } else if (staticMarginPercent < 4.0) {
     stabilityStatus = 'tail_heavy';
     statusBadgeText = 'Marginally Stable / Tail-Heavy';
     educationalFeedback =
-      'The glider is slightly tail-heavy. It will tend to porpoise (wave up and down) and stall easily unless tossed with care.';
-    pitchTendencyDescription = 'Undamped pitch oscillation (porpoising) and low-speed stall.';
+      'The CG is near the estimated neutral point. The model suggests little or no restoring pitch tendency; moving the balance forward may help.';
+    pitchTendencyDescription = 'Small or negative estimated stability margin.';
   } else if (staticMarginPercent > 25.0) {
     stabilityStatus = 'extremely_nose_heavy';
-    statusBadgeText = 'Severely Nose-Heavy (Lawn Dart)';
+    statusBadgeText = 'CG Far Ahead of Target Range';
     educationalFeedback =
-      'Far too much nose weight! The nose will pull straight down into the floor immediately after leaving your hand.';
-    pitchTendencyDescription = 'Steep nosedive straight into the ground.';
+      'The CG is well ahead of the target range. Recheck nose ballast and tail trim; this balance calculation alone cannot determine the glide angle.';
+    pitchTendencyDescription = 'Large estimated stability margin; trim needs a separate check.';
   } else if (staticMarginPercent > 16.0) {
     stabilityStatus = 'nose_heavy';
     statusBadgeText = 'Slightly Nose-Heavy';
     educationalFeedback =
-      'A bit too much nose weight. The glider will fly fast and penetrate wind well, but its glide angle is steep and sink rate is high.';
-    pitchTendencyDescription = 'Fast, steep descent with high sink rate.';
+      'The CG is ahead of the target range. Review the ballast recommendation and check the assembled balance before testing the glide.';
+    pitchTendencyDescription = 'Above-target estimated stability margin; flight speed is not predicted.';
   }
 
   // 7. Calculate Recommended Nose Ballast for Target Static Margin (10% of MAC)

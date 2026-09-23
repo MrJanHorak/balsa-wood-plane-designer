@@ -1,7 +1,7 @@
 import { GliderDesign, getEffectiveTipChordMm, getWingPlanformKind } from '@/types/glider';
 import { getFuselageContourPoints } from '@/physics/massBalance';
 import { getTailPlanformPoints } from './customWing';
-import { subtractSheetCutouts } from './sheetCutouts';
+import { getFuselageCuts, subtractSheetCutouts } from './sheetCutouts';
 import { getFinProfilePoints } from './customFin';
 import {
   Point2D,
@@ -52,12 +52,7 @@ export function generateFuselageFlatPattern(glider: GliderDesign): FlatPartSvg {
   // (see generatePylonFlatPattern) and glues to the spine independently.
 
   // Tail slot may exit the outline as an open-ended sliding notch.
-  const ts = fuselage.tailSlot;
-  const tailSlotPoints = calculateSlotPoints(ts);
-
-
-  const cuts = [tailSlotPoints];
-  if (fuselage.mountType === 'through_slot') cuts.push(wingSlotPoints);
+  const cuts = getFuselageCuts(glider);
   const regions = subtractSheetCutouts(contour, cuts);
   const outlinePath = regions.map(r => pointsToPath(r.outline)).join(' ');
   const enclosedCuts = regions.flatMap(r => r.holes.map(pointsToPath));

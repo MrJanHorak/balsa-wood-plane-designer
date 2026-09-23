@@ -18,7 +18,7 @@ export const TelemetryCard: React.FC<TelemetryCardProps> = ({ aeroReport, mode }
       <div className="flex items-center gap-2 border-b border-slate-800 pb-2">
         <Gauge className="w-4 h-4 text-cyan-400" />
         <h3 className="font-bold text-sm text-slate-100">
-          {isSimple ? 'Flight Stats & Specifications' : 'Aerodynamic Telemetry & Polar Estimates'}
+          {isSimple ? 'Design Stats & Flight Estimates' : 'Geometry & Low-Order Aerodynamic Estimates'}
         </h3>
       </div>
 
@@ -52,7 +52,7 @@ export const TelemetryCard: React.FC<TelemetryCardProps> = ({ aeroReport, mode }
         <div className="p-2.5 rounded-lg bg-slate-800/60 border border-slate-700/60 flex flex-col justify-between">
           <div className="flex items-center gap-1.5 text-slate-400">
             <MoveHorizontal className="w-3.5 h-3.5 text-emerald-400" />
-            <span>{isSimple ? 'Glide Ratio (L/D)' : 'Lift-to-Drag (L/D)'}</span>
+            <span>{isSimple ? 'Estimated Glide Ratio' : 'Estimated Lift-to-Drag (L/D)'}</span>
           </div>
           <div className="mt-1 flex items-baseline gap-1">
             <span className="text-base font-bold text-emerald-300">~{aeroReport.estimatedGlideRatio} : 1</span>
@@ -64,7 +64,7 @@ export const TelemetryCard: React.FC<TelemetryCardProps> = ({ aeroReport, mode }
         <div className="p-2.5 rounded-lg bg-slate-800/60 border border-slate-700/60 flex flex-col justify-between">
           <div className="flex items-center gap-1.5 text-slate-400">
             <Wind className="w-3.5 h-3.5 text-indigo-400" />
-            <span>Stall Speed (Vs)</span>
+            <span>Estimated Stall Speed</span>
           </div>
           <div className="mt-1 flex items-baseline gap-1">
             <span className="text-base font-bold text-indigo-300">{aeroReport.estimatedStallSpeedMs}</span>
