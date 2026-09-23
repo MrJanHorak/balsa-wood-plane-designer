@@ -151,7 +151,7 @@ export const GLIDER_PRESETS: Record<string, GliderDesign> = {
         xPositionMm: 75,
         yPositionMm: 25,
         angleDeg: 1.5,
-        lengthMm: 70,
+        lengthMm: 72, // Full one-piece wing root chord must pass through the slot.
         thicknessMm: 1.7,
       },
       tailSlot: {

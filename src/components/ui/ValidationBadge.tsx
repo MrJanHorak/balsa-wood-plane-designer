@@ -17,12 +17,12 @@ export const ValidationBadge: React.FC<ValidationBadgeProps> = ({ report }) => {
 
   let badgeColor = 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 hover:bg-emerald-500/30';
   let badgeIcon = <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />;
-  let badgeText = 'Laser-Ready & Sound';
+  let badgeText = 'Design Checks Passed';
 
   if (!report.isValid) {
     badgeColor = 'bg-rose-500/20 text-rose-300 border-rose-500/50 hover:bg-rose-500/30 animate-pulse';
     badgeIcon = <XCircle className="w-3.5 h-3.5 text-rose-400 shrink-0" />;
-    badgeText = `${errorCount} Structural ${errorCount === 1 ? 'Error' : 'Errors'}`;
+    badgeText = `${errorCount} Design ${errorCount === 1 ? 'Error' : 'Errors'}`;
   } else if (report.hasWarnings) {
     badgeColor = 'bg-amber-500/20 text-amber-300 border-amber-500/40 hover:bg-amber-500/30';
     badgeIcon = <AlertTriangle className="w-3.5 h-3.5 text-amber-400 shrink-0" />;

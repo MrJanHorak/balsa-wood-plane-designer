@@ -3,8 +3,8 @@ import { getFuselageContourPoints } from '@/physics/massBalance';
 import { getTailPlanformPoints } from './customWing';
 import { getFuselageCuts, subtractSheetCutouts } from './sheetCutouts';
 import { getFinProfilePoints } from './customFin';
+import { getPylonGeometry } from './pylon';
 import {
-  Point2D,
   calculateWingPlanformPoints,
   calculateBoundingBox,
   calculateSlotPoints,
@@ -76,20 +76,7 @@ export function generateFuselageFlatPattern(glider: GliderDesign): FlatPartSvg {
  * generated in geometry/extrusion3d.ts so the 2D cut part matches the 3D preview exactly.
  */
 export function generatePylonFlatPattern(glider: GliderDesign): FlatPartSvg {
-  const { fuselage } = glider;
-  const ws = fuselage.wingSlot;
-  const pylonW = fuselage.pylonWidthMm || 24;
-  const baseSpineY = Math.min(fuselage.maxHeightMm, ws.yPositionMm);
-  const topPylonY = ws.yPositionMm;
-  const pylonHeightMm = Math.max(0, topPylonY - (baseSpineY - 4));
-
-  // Drawn root-up in its own local frame: (0,0) at bottom-left of the strut base
-  const points: Point2D[] = [
-    { x: 0, y: 0 },
-    { x: pylonW, y: 0 },
-    { x: pylonW * 0.9, y: pylonHeightMm },
-    { x: pylonW * 0.1, y: pylonHeightMm },
-  ];
+  const { points, width: pylonW, height: pylonHeightMm } = getPylonGeometry(glider);
 
   return {
     id: 'parasol_pylon',
@@ -103,7 +90,8 @@ export function generatePylonFlatPattern(glider: GliderDesign): FlatPartSvg {
 }
 
 /**
- * Generates 2D SVG path data for the 1-piece Main Wing (with center dihedral score line and interlocking slot tab).
+ * Generates the projected 1-piece wing outline and center dihedral guide.
+ * Cambered wings still require developed-sheet flattening before manufacture.
  * Sourced from the canonical planform engine (src/geometry/core.ts) — the same
  * function the 3D renderer and physics engine use for this wing's shape.
  */
@@ -124,7 +112,7 @@ export function generateWingFlatPattern(glider: GliderDesign): FlatPartSvg {
   const bbox = calculateBoundingBox(points);
 
   // Center Score Line along root chord (for bending dihedral angle)
-  const scoreLines = [`M 0 0 L ${cr} 0`];
+  const scoreLines = wing.dihedralDeg !== 0 ? [`M 0 0 L ${cr} 0`] : [];
 
   return {
     id: 'main_wing',

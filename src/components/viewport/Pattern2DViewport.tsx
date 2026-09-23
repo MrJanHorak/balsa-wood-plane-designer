@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { GliderDesign } from '@/types/glider';
+import { exportPatternSvg } from '@/geometry/exportSvg';
 import {
   generateFuselageFlatPattern,
   generateTailFlatPattern,
@@ -92,10 +93,7 @@ export const Pattern2DViewport: React.FC<Pattern2DViewportProps> = ({ glider }) 
 
   // Download SVG pattern function
   const downloadSvg = () => {
-    const svgEl = document.getElementById('balsa-pattern-svg');
-    if (!svgEl) return;
-    const serializer = new XMLSerializer();
-    const source = serializer.serializeToString(svgEl);
+    const source = exportPatternSvg(glider);
     const blob = new Blob([source], { type: 'image/svg+xml;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -104,6 +102,7 @@ export const Pattern2DViewport: React.FC<Pattern2DViewportProps> = ({ glider }) 
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    window.setTimeout(() => URL.revokeObjectURL(url), 0);
   };
 
   // Dynamically stack every part in its own row, sized from its actual
@@ -218,7 +217,7 @@ export const Pattern2DViewport: React.FC<Pattern2DViewportProps> = ({ glider }) 
               rx="4"
             />
             <text x="10" y="14" fill="#855d3e" fontSize="8" fontFamily="monospace">
-              STANDARD BALSA SHEET ({glider.material.name}) - THICKNESS: {glider.material.sheetThicknessMm.toFixed(2)}mm
+              PART LAYOUT — NOT STOCK NESTING ({glider.material.name})
             </text>
 
             {laidOut.map((row) => (
@@ -265,9 +264,11 @@ export const Pattern2DViewport: React.FC<Pattern2DViewportProps> = ({ glider }) 
           <div className="mt-3 flex items-start gap-2 text-xs text-slate-400 bg-slate-950/60 p-2.5 rounded border border-slate-800">
             <Info className="w-4 h-4 text-cyan-400 flex-shrink-0 mt-0.5" />
             <span>
-              <strong>Maker Tip:</strong> The slot in the fuselage is laser-kerf compensated to{' '}
-              {glider.fuselage.wingSlot.thicknessMm.toFixed(2)}mm for a firm friction lock with the{' '}
-              {glider.wing.thicknessMm.toFixed(2)}mm wing sheet. Sand lightly if tight, or apply a drop of PVA/wood glue.
+              <strong>Export:</strong> SVG uses millimetres with separate red cut and blue guide groups.
+              Apply kerf compensation in your cutting software; it is not applied here. Test slot fit on scrap.
+              Use the specified thickness for each part; this layout is not a stock-sheet packing plan.
+              {glider.wing.camberPercent > 0 && <strong className="block text-amber-300 mt-1">Cambered wing: this is a projected outline, not a flattened blank. Prototype and adjust before cutting final material.</strong>}
+              {glider.wing.dihedralDeg !== 0 && <span className="block mt-1">The center line is a fold/assembly guide. Test the folded wing in its slot; the joint may need local relief.</span>}
             </span>
           </div>
         </div>

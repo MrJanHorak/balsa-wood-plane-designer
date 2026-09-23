@@ -104,6 +104,8 @@ export const TelemetryCard: React.FC<TelemetryCardProps> = ({ aeroReport, mode }
             <div>Fuse: {massBreakdown.fuselageGrams}g</div>
             <div>Wing: {massBreakdown.wingGrams}g</div>
             <div>Tail: {massBreakdown.tailGrams}g</div>
+            <div>Fin: {massBreakdown.finGrams}g</div>
+            {massBreakdown.pylonGrams > 0 && <div>Pylon: {massBreakdown.pylonGrams}g</div>}
             <div>Nose: {massBreakdown.ballastGrams}g</div>
           </div>
         </div>

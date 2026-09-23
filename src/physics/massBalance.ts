@@ -2,6 +2,7 @@ import { GliderDesign, GliderMassBreakdown, getEffectiveTipChordMm, getWingPlanf
 import { getTailPlanformPoints } from '@/geometry/customWing';
 import { getFinProfilePoints } from '@/geometry/customFin';
 import polygonClipping from 'polygon-clipping';
+import { getPylonGeometry } from '@/geometry/pylon';
 import { calculateSheetProperties, getFuselageCuts, subtractSheetCutouts } from '@/geometry/sheetCutouts';
 import {
   Point2D,
@@ -266,18 +267,24 @@ export function calculateGliderMassAndCG(glider: GliderDesign): {
     finCy = glider.fuselage.tailSlot.yPositionMm + glider.fuselage.tailSlot.thicknessMm + finLocalCentroid.y;
   }
 
+  // The separate pylon is a physical cut part, not part of the fuselage outline.
+  const pylon = getPylonGeometry(glider);
+  const pylonCenter = polygonCentroid(pylon.points);
+  const pylonGrams = glider.fuselage.mountType === 'parasol_pylon'
+    ? polygonArea(pylon.points) * glider.fuselage.thicknessMm * densityGPerMm3 : 0;
+
   // 5. Unballasted Airframe totals
-  const unballastedMassGrams = fuselageGrams + wingGrams + tailGrams + finGrams;
+  const unballastedMassGrams = fuselageGrams + wingGrams + tailGrams + finGrams + pylonGrams;
   const unballastedMomentX =
     fuselageGrams * fuseCx +
     wingGrams * wingCx +
     tailGrams * tailCx +
-    finGrams * finCx;
+    finGrams * finCx + pylonGrams * (pylon.origin.x + pylonCenter.x);
   const unballastedMomentY =
     fuselageGrams * fuseCy +
     wingGrams * wingCy +
     tailGrams * tailCy +
-    finGrams * finCy;
+    finGrams * finCy + pylonGrams * (pylon.origin.y + pylonCenter.y);
 
   const unballastedCgXMm = unballastedMassGrams > 0 ? unballastedMomentX / unballastedMassGrams : 0;
 
@@ -295,6 +302,7 @@ export function calculateGliderMassAndCG(glider: GliderDesign): {
 
   return {
     breakdown: {
+      pylonGrams: Number(pylonGrams.toFixed(2)),
       fuselageGrams: Number(fuselageGrams.toFixed(2)),
       wingGrams: Number(wingGrams.toFixed(2)),
       tailGrams: Number(tailGrams.toFixed(2)),

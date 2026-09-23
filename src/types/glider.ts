@@ -70,7 +70,7 @@ export interface WingConfig {
   dihedralDeg: number;        // Dihedral angle per wing half (0° - 15°)
   camberPercent: number;      // Wood pre-curvature / camber (0% = flat, 4-6% = cambered)
   thicknessMm: number;        // Wing sheet thickness
-  slotTabWidthMm: number;     // Width of center interlocking tab
+  slotTabWidthMm: number;     // Legacy document field; the one-piece wing uses its full root chord.
   hasLeadingEdgeTaper: boolean;
   customNodes?: WingNode[];   // Draggable half-wing control nodes for custom planform
 }
@@ -146,6 +146,7 @@ export type StabilityStatus =
   | 'extremely_nose_heavy';
 
 export interface GliderMassBreakdown {
+  pylonGrams: number;
   fuselageGrams: number;
   wingGrams: number;
   tailGrams: number;

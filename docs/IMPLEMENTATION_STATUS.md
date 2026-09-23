@@ -2,6 +2,19 @@
 
 ## Completed in this pass
 
+- SVG downloads now use explicit millimetre dimensions and matching viewBox units,
+  with separate cut and guide groups. Preview backgrounds, labels and rulers are
+  excluded from toolpaths. Part thickness is recorded on each cut group.
+- Removed the overlapping decorative center-tab mesh: the one-piece wing panels
+  already include the root. A flat wing no longer receives a dihedral score guide.
+- Pylon geometry is shared by preview, pattern and mass; its mass and first moments
+  are now included, and cosmetic bevels no longer enlarge the rendered sheet.
+- Manufacturing checks flag narrow/loose slots and short wing-root openings. The
+  Aero Dart preset slot now matches its 72 mm root. Stock height checks include
+  the actual fuselage contour and integral fin.
+- UI/export notes identify cambered outlines as projected templates, warn about
+  folded-joint fit, and no longer claim automatic kerf compensation or stock nesting.
+
 - Vertical-fin editing now supports a single upright custom profile, integral or
   separate attachment, and synchronized cut patterns, mass, and JSON documents.
 - Fuselage mass and centroid now use the remaining sheet after slot subtraction.
@@ -26,18 +39,23 @@
   Entering custom mode preserves the elliptical shape, mesh, and balance report.
 - Cut-sheet bounds account for the sampled fuselage curve's extrema.
 
-Verification: 144 tests, including net sheet area/centroid and preset ballast
+Verification: 151 tests, including physical SVG units, export parts/escaping,
+pylon dimensions/moments, fit warnings, net sheet area/centroid and preset ballast
 regressions, malformed imports, triangulated face-area checks across tail slot
 lengths, exact tail sheet thickness, disconnected cuts, elliptical/custom agreement,
 and camera projection checks in narrow and wide viewports. Browser checks cover
 tail chord edits, side view, framing, and structural feedback. The production build
-and TypeScript pass. Three pre-existing unused-variable lint warnings remain.
+and TypeScript pass. Two pre-existing unused-variable lint warnings remain.
+Desktop browser checks cover the pattern notes and revised front-view assembly.
+No browser console errors were reported. The in-app browser did not expose an SVG
+download event; serializer output is covered by tests, but the saved download still
+needs a manual check in a normal browser/CAM application.
 
 ## Next implementation sequence
 
 1. **Manufacturing consistency:** verify central tab and slot fits, custom-fin
-   attachment edge cases, and cambered-sheet flattening. Audit pylon mass and
-   placement transforms; distinguish disconnected pieces from fragile bridges.
+   attachment edge cases, and cambered-sheet flattening. Audit wing/tail incidence
+   transforms in CG calculations; distinguish disconnected pieces from fragile bridges.
 2. **Buildable output:** verify SVG dimensions, separate fit clearance from kerf,
    add calibrated 1:1 tiled PDFs and assembly instructions, then grain-aware layout.
    Complete a physical cut-and-assemble trial before manufacturing sign-off.

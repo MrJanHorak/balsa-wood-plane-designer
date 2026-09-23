@@ -131,6 +131,32 @@ export function validateGliderDesign(
   const fuselageBBox = calculateBoundingBox(fuselagePoints);
   const aeroReport = providedAeroReport ?? analyzeGliderStability(glider);
 
+  for (const [name, slot, thickness, component] of [
+    ['wing', fuselage.wingSlot, wing.thicknessMm, 'wing'],
+    ['tail', fuselage.tailSlot, glider.horizontalStabilizer.thicknessMm, 'horizontalStabilizer'],
+  ] as const) {
+    if (name === 'wing' && fuselage.mountType !== 'through_slot') continue;
+    const clearance = slot.thicknessMm - thickness;
+    if (clearance < -0.001) issues.push({ id: `${name}_slot_too_tight`, severity: 'error', category: 'manufacturing',
+      title: `${name === 'wing' ? 'Wing' : 'Tail'} Sheet Is Thicker Than Its Slot`,
+      message: `The ${slot.thicknessMm.toFixed(2)}mm slot is narrower than the ${thickness.toFixed(2)}mm sheet.`,
+      suggestedFix: 'Increase the slot thickness or choose thinner stock. Test the fit on scrap.', affectedComponent: component });
+    else if (clearance > 0.4) issues.push({ id: `${name}_slot_loose`, severity: 'warning', category: 'manufacturing',
+      title: 'Loose Slot Fit', message: `The ${name} slot has ${clearance.toFixed(2)}mm total clearance before tool kerf.`,
+      suggestedFix: 'Check the measured stock thickness and reduce the slot opening if needed.', affectedComponent: component });
+  }
+  if (fuselage.mountType === 'through_slot' && fuselage.wingSlot.lengthMm < wing.rootChordMm - 0.01) {
+    issues.push({ id: 'wing_slot_short', severity: 'error', category: 'manufacturing', title: 'Wing Slot Is Shorter Than the Root',
+      message: 'The one-piece wing has a full root chord; its center is not a narrower separate tab.',
+      suggestedFix: 'Lengthen the slot to at least the wing root chord.', affectedComponent: 'wing' });
+  }
+  if (wing.camberPercent > 0) issues.push({ id: 'wing_pattern_camber', severity: 'warning', category: 'manufacturing',
+    title: 'Cambered Wing Needs a Developed Blank', message: 'The exported wing is its projected planform. Flattening the curved sheet is not implemented.',
+    suggestedFix: 'Prototype and adjust the blank, or use zero camber for a flat-sheet template.', affectedComponent: 'wing' });
+  if (wing.dihedralDeg !== 0 && fuselage.mountType === 'through_slot') issues.push({ id: 'wing_fold_fit', severity: 'warning', category: 'manufacturing',
+    title: 'Check the Folded Center Joint', message: 'The center fold passes through a finite-thickness fuselage; the slot may need local relief for the dihedral bend.',
+    suggestedFix: 'Test the center joint on scrap before cutting final parts.', affectedComponent: 'wing' });
+
   // -------------------------------------------------------------
   // 1. STRUCTURAL ENCLOSURE CHECKS
   // -------------------------------------------------------------
@@ -377,23 +403,24 @@ export function validateGliderDesign(
   }
 
   // Fuselage Max Depth
-  if (fuselage.maxHeightMm > STANDARD_SHEET_WIDTH_4_INCH) {
+  const actualFuselageHeight = fuselageBBox.maxY - fuselageBBox.minY;
+  if (actualFuselageHeight > STANDARD_SHEET_WIDTH_4_INCH) {
     issues.push({
       id: 'fuselage_height_exceeds_4_inch',
       severity: 'warning',
       category: 'manufacturing',
       title: 'Fuselage Height Exceeds 4" Stock Sheet',
-      message: `Fuselage height (${fuselage.maxHeightMm.toFixed(1)}mm) exceeds standard 4-inch balsa planks.`,
+      message: `Cut-outline height (${actualFuselageHeight.toFixed(1)}mm), including the integral fin, exceeds standard 4-inch balsa planks.`,
       suggestedFix: 'Reduce max fuselage height to ≤ 100mm.',
       affectedComponent: 'fuselage',
     });
-  } else if (fuselage.maxHeightMm > STANDARD_SHEET_WIDTH_3_INCH) {
+  } else if (actualFuselageHeight > STANDARD_SHEET_WIDTH_3_INCH) {
     issues.push({
       id: 'fuselage_height_requires_4_inch',
       severity: 'info',
       category: 'manufacturing',
       title: 'Fuselage Requires 4" Balsa Stock',
-      message: `Fuselage height (${fuselage.maxHeightMm.toFixed(1)}mm) requires 4-inch wide stock.`,
+      message: `Cut-outline height (${actualFuselageHeight.toFixed(1)}mm), including the integral fin, requires 4-inch wide stock.`,
       affectedComponent: 'fuselage',
     });
   }

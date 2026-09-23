@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { getPylonGeometry } from './pylon';
 import { getFinProfilePoints } from './customFin';
 import { getTailPlanformPoints, seedWingNodes } from './customWing';
 import { getFuselageCuts, subtractSheetCutouts } from './sheetCutouts';
@@ -95,25 +96,13 @@ export function createFuselageMesh(glider: GliderDesign, balsaMaterial: THREE.Ma
 
   // Add Parasol Cabane Pylon if wing is elevated
   if (fuselage.mountType === 'parasol_pylon') {
-    const ws = fuselage.wingSlot;
-    const pylonShape = new THREE.Shape();
-    const pylonW = fuselage.pylonWidthMm || 24;
-    const startX = ws.xPositionMm + (ws.lengthMm - pylonW) / 2;
-    const baseSpineY = Math.min(fuselage.maxHeightMm, ws.yPositionMm);
-    const topPylonY = ws.yPositionMm;
-
-    pylonShape.moveTo(startX, baseSpineY - 4);
-    pylonShape.lineTo(startX + pylonW, baseSpineY - 4);
-    pylonShape.lineTo(startX + pylonW * 0.9, topPylonY);
-    pylonShape.lineTo(startX + pylonW * 0.1, topPylonY);
+    const { points, origin } = getPylonGeometry(glider);
+    const pylonShape = new THREE.Shape(points.map(p => new THREE.Vector2(p.x + origin.x, p.y + origin.y)));
     pylonShape.closePath();
 
     const pylonGeom = new THREE.ExtrudeGeometry(pylonShape, {
       depth: fuselage.thicknessMm,
-      bevelEnabled: true,
-      bevelSegments: 1,
-      bevelSize: 0.2,
-      bevelThickness: 0.2,
+      bevelEnabled: false,
     });
     pylonGeom.translate(0, 0, -fuselage.thicknessMm / 2);
     const pylonMesh = new THREE.Mesh(pylonGeom, balsaMaterial);
@@ -307,77 +296,6 @@ export function createHalfWingGeometry(glider: GliderDesign): THREE.BufferGeomet
 }
 
 /**
- * Generates the center tab mesh passing through the fuselage wing slot.
- * Follows the camber curve at the root chord so it connects seamlessly to the wings.
- */
-export function createCenterTabGeometry(glider: GliderDesign): THREE.BufferGeometry {
-  const { wing, fuselage } = glider;
-  const cr = wing.rootChordMm;
-  const tabWidth = wing.slotTabWidthMm || cr * 0.9;
-  const tabOffset = (cr - tabWidth) / 2;
-  const halfSlotSpan = Math.max(fuselage.thicknessMm / 2 + 1, 3);
-  const thickness = wing.thicknessMm;
-  const camberPercent = wing.camberPercent;
-
-  const N = 16;
-  const positions: number[] = [];
-  const uvs: number[] = [];
-  const indices: number[] = [];
-
-  function addVertex(x: number, y: number, z: number, u: number, v: number): number {
-    const idx = positions.length / 3;
-    positions.push(x, y, z);
-    uvs.push(u, v);
-    return idx;
-  }
-
-  function addQuad(a: number, b: number, c: number, d: number) {
-    indices.push(a, b, c);
-    indices.push(a, c, d);
-  }
-
-  const upperZneg: number[] = [];
-  const upperZpos: number[] = [];
-  const lowerZneg: number[] = [];
-  const lowerZpos: number[] = [];
-
-  for (let i = 0; i <= N; i++) {
-    const s = (tabOffset + (i / N) * tabWidth) / cr;
-    const x = tabOffset + (i / N) * tabWidth;
-    const camb = getCamberElevation(s, cr, camberPercent);
-    const yUpper = camb + thickness / 2;
-    const yLower = camb - thickness / 2;
-
-    upperZneg.push(addVertex(x, yUpper, -halfSlotSpan, x / 100, 0));
-    upperZpos.push(addVertex(x, yUpper, halfSlotSpan, x / 100, 0.05));
-    lowerZneg.push(addVertex(x, yLower, -halfSlotSpan, x / 100, 0));
-    lowerZpos.push(addVertex(x, yLower, halfSlotSpan, x / 100, 0.05));
-  }
-
-  // Top and bottom faces
-  for (let i = 0; i < N; i++) {
-    // Upper face (normal +Y)
-    addQuad(upperZpos[i], upperZpos[i + 1], upperZneg[i + 1], upperZneg[i]);
-    // Lower face (normal -Y)
-    addQuad(lowerZneg[i], lowerZneg[i + 1], lowerZpos[i + 1], lowerZpos[i]);
-  }
-
-  // Front (LE) and back (TE) end caps
-  // Front cap at i = 0
-  addQuad(lowerZneg[0], upperZneg[0], upperZpos[0], lowerZpos[0]);
-  // Back cap at i = N
-  addQuad(lowerZpos[N], upperZpos[N], upperZneg[N], lowerZneg[N]);
-
-  const geom = new THREE.BufferGeometry();
-  geom.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-  geom.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
-  geom.setIndex(indices);
-  geom.computeVertexNormals();
-
-  return geom;
-}
-
-/**
  * Generates Three.js meshes for the Main Wing (Left and Right panels with dihedral angle)
  */
 export function createWingMesh(glider: GliderDesign, balsaMaterial: THREE.Material): THREE.Group {
@@ -406,15 +324,10 @@ export function createWingMesh(glider: GliderDesign, balsaMaterial: THREE.Materi
   leftWingMesh.rotation.x = dihedralRad;
   rightWingMesh.rotation.x = -dihedralRad;
 
-  // Center Tab mesh that slides directly through the fuselage slot
-  const tabGeom = createCenterTabGeometry(glider);
-  const tabMesh = new THREE.Mesh(tabGeom, balsaMaterial);
-  tabMesh.castShadow = true;
-  tabMesh.receiveShadow = true;
-
+  // These two full panels meet at the center score line. Adding another tab
+  // here duplicates material that does not exist in the one-piece cut pattern.
   wingGroup.add(leftWingMesh);
   wingGroup.add(rightWingMesh);
-  wingGroup.add(tabMesh);
 
   // Position wing assembly at fuselage wing slot location & apply incidence angle
   const incidenceRad = (fuselage.wingSlot.angleDeg * Math.PI) / 180;
