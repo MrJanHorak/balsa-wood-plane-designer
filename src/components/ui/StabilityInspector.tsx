@@ -86,7 +86,7 @@ export const StabilityInspector: React.FC<StabilityInspectorProps> = ({
       <div className="space-y-1 pt-1">
         <div className="flex justify-between text-xs text-slate-300">
           <span>Nose (0mm)</span>
-          <span className="text-slate-500 font-mono">Fuselage Profile ({fuseLen}mm)</span>
+          <span className="text-slate-400 font-mono">Fuselage Profile ({fuseLen}mm)</span>
           <span>Tail</span>
         </div>
 
