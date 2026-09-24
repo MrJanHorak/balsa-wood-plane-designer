@@ -3,10 +3,11 @@
 import React from 'react';
 import { GliderDesign, UIMode } from '@/types/glider';
 import { GLIDER_PRESETS } from '@/constants/presets';
-import { Plane, Box, Scissors, GraduationCap, Cpu, Layers, Save, FolderOpen, Download, Upload } from 'lucide-react';
+import { Plane, Box, Scissors, GraduationCap, Cpu, Layers } from 'lucide-react';
 import { ValidationReport } from '@/geometry/validation';
 import { ValidationBadge } from './ValidationBadge';
 import { DesignHistoryControls } from './DesignHistoryControls';
+import { FileActionsMenu } from './FileActionsMenu';
 import { NamedDesignVersion } from '@/design/versions';
 
 interface HeaderProps {
@@ -142,20 +143,7 @@ export const Header: React.FC<HeaderProps> = ({
         <DesignHistoryControls canUndo={canUndo} canRedo={canRedo} onUndo={onUndo} onRedo={onRedo}
           versions={versions} onCreateVersion={onCreateVersion} onRestoreVersion={onRestoreVersion} onDeleteVersion={onDeleteVersion} />
 
-        <div className="flex items-center bg-slate-950/80 p-1 rounded-lg border border-slate-800">
-          <button type="button" onClick={onSaveLocal} aria-label="Save design in this browser" className="min-h-8 min-w-8 p-1.5 rounded text-slate-300 hover:bg-slate-800 hover:text-white" title="Save this design in your browser">
-            <Save className="w-4 h-4" />
-          </button>
-          <button type="button" onClick={onLoadLocal} aria-label="Load saved design from this browser" className="min-h-8 min-w-8 p-1.5 rounded text-slate-300 hover:bg-slate-800 hover:text-white" title="Load the browser's saved design">
-            <FolderOpen className="w-4 h-4" />
-          </button>
-          <button type="button" onClick={onExport} aria-label="Export design JSON" className="min-h-8 min-w-8 p-1.5 rounded text-slate-300 hover:bg-slate-800 hover:text-white" title="Export design JSON">
-            <Download className="w-4 h-4" />
-          </button>
-          <button type="button" onClick={onImport} aria-label="Import design JSON" className="min-h-8 min-w-8 p-1.5 rounded text-slate-300 hover:bg-slate-800 hover:text-white" title="Import a design JSON file">
-            <Upload className="w-4 h-4" />
-          </button>
-        </div>
+        <FileActionsMenu onSaveLocal={onSaveLocal} onLoadLocal={onLoadLocal} onExport={onExport} onImport={onImport} />
 
         <div className="flex items-center bg-slate-950/80 p-1 rounded-lg border border-slate-800">
           <button

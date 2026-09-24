@@ -58,6 +58,7 @@ export const ValidationBadge: React.FC<ValidationBadgeProps> = ({ report }) => {
         onClick={() => setIsOpen(!isOpen)}
         aria-label={badgeText}
         aria-expanded={isOpen}
+        aria-controls={isOpen ? 'design-check-details' : undefined}
         className={`flex items-center gap-1.5 px-2.5 py-1 text-xs rounded-lg border font-medium transition-all shadow-sm ${badgeColor}`}
         title="Check physical manufacturability, structural margins, and material fit"
       >
@@ -68,7 +69,7 @@ export const ValidationBadge: React.FC<ValidationBadgeProps> = ({ report }) => {
 
       {/* Popover Card */}
       {isOpen && (
-        <div role="region" aria-label="Design check details" className="absolute left-0 top-full z-50 mt-2 flex w-[min(20rem,calc(100vw-1rem))] flex-col gap-2.5 rounded-xl border border-slate-700/80 bg-slate-900/95 p-3.5 text-slate-100 shadow-2xl backdrop-blur-md sm:left-auto sm:right-0 sm:w-96">
+        <div id="design-check-details" role="region" aria-label="Design check details" tabIndex={0} className="absolute left-0 top-full z-50 mt-2 flex max-h-[calc(100dvh-8rem)] w-[min(20rem,calc(100vw-2rem))] flex-col gap-2.5 overflow-y-auto rounded-xl border border-slate-700/80 bg-slate-900/95 p-3.5 text-slate-100 shadow-2xl backdrop-blur-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-300 sm:left-auto sm:right-0 sm:w-96">
             <div className="flex flex-wrap items-center justify-between gap-1 border-b border-slate-800 pb-2">
             <div className="flex items-center gap-1.5 font-bold text-xs">
               <ShieldAlert className="w-4 h-4 text-cyan-400" />
@@ -85,7 +86,7 @@ export const ValidationBadge: React.FC<ValidationBadgeProps> = ({ report }) => {
               <span>All parts are structurally enclosed, fit standard balsa sheet sizes, and meet aerodynamic pitch/roll margins.</span>
             </div>
           ) : (
-            <div className="max-h-72 overflow-y-auto space-y-2 pr-1 text-xs">
+            <div className="space-y-2 pr-1 text-xs">
               {report.issues.map((issue) => {
                 const isError = issue.severity === 'error';
                 const isWarning = issue.severity === 'warning';

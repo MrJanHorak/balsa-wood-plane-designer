@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_GLIDER } from '@/constants/presets';
-import { seedWingNodes, resizeWing, validateCustomWing } from './customWing';
+import { seedWingNodes, resizeWing, validateCustomWing, nudgeSurfaceNode, tailAsWing } from './customWing';
 import { calculateCustomWingPlanformPoints, polygonArea, polygonCentroid } from './core';
 import { computeCustomWingAerodynamics, computeSurfaceAerodynamics } from '@/physics/aerodynamics';
 import { createPlaneDesignDocument, deserializePlaneDesign, serializePlaneDesign } from '@/design/document';
@@ -17,6 +17,29 @@ function design() {
 }
 
 describe('custom wing workflow', () => {
+  it('nudges wing and tail points in screen directions while keeping roots and tips constrained', () => {
+    const wing = design().wing;
+    const nodes = wing.customNodes!;
+    const tip = nodes[1];
+    const moved = nudgeSurfaceNode(wing, nodes, tip.id, 'ArrowDown', 1, false)!;
+    expect(moved[1].xMm).toBe(tip.xMm + 1);
+    expect(validateCustomWing({ ...wing, customNodes: moved })).toBeNull();
+    expect(nudgeSurfaceNode(wing, nodes, tip.id, 'ArrowRight', 1, false)).toBeNull();
+    expect(nudgeSurfaceNode(wing, nodes, nodes[0].id, 'ArrowDown', 1, false)).toBeNull();
+
+    const tail = tailAsWing(DEFAULT_GLIDER.horizontalStabilizer);
+    const tailNodes = seedWingNodes(tail);
+    const shifted = nudgeSurfaceNode(tail, tailNodes, tailNodes[1].id, 'ArrowUp', 5, false)!;
+    expect(shifted[1].xMm).toBe(tailNodes[1].xMm - 5);
+    expect(validateCustomWing({ ...tail, planformType: 'custom', customNodes: shifted })).toBeNull();
+  });
+  it('uses the rotated screen directions for the vertical fin', () => {
+    const wing = design().wing;
+    const nodes = wing.customNodes!;
+    const moved = nudgeSurfaceNode(wing, nodes, nodes[1].id, 'ArrowRight', 1, true)!;
+    expect(moved[1].xMm).toBe(nodes[1].xMm + 1);
+    expect(nudgeSurfaceNode(wing, nodes, nodes[1].id, 'ArrowUp', 1, true)).toBeNull();
+  });
   it.each(['rectangular', 'tapered', 'elliptical', 'delta'] as const)('seeds a valid symmetric %s outline', planformType => {
     const wing = { ...design().wing, planformType };
     const nodes = seedWingNodes(wing);

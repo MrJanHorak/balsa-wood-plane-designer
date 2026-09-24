@@ -39,6 +39,22 @@ export function validateCustomWing(wing: WingConfig): string | null {
   return null;
 }
 
+export type SurfaceArrowKey = 'ArrowLeft' | 'ArrowRight' | 'ArrowUp' | 'ArrowDown';
+
+/** Move an outline point in the displayed direction, keeping attachment geometry valid. */
+export function nudgeSurfaceNode(wing: WingConfig, nodes: WingNode[], id: string, key: SurfaceArrowKey, stepMm: number, isFin: boolean): WingNode[] | null {
+  const node = nodes.find(n => n.id === id);
+  if (!node || node.yMm === 0) return null;
+  const atTip = Math.abs(node.yMm - wing.spanMm / 2) < 1e-6;
+  const xDelta = isFin ? (key === 'ArrowRight' ? stepMm : key === 'ArrowLeft' ? -stepMm : 0)
+    : (key === 'ArrowDown' ? stepMm : key === 'ArrowUp' ? -stepMm : 0);
+  const yDelta = atTip ? 0 : isFin ? (key === 'ArrowUp' ? stepMm : key === 'ArrowDown' ? -stepMm : 0)
+    : (key === 'ArrowRight' ? stepMm : key === 'ArrowLeft' ? -stepMm : 0);
+  if (!xDelta && !yDelta) return null;
+  const next = nodes.map(n => n.id === id ? { ...n, xMm: n.xMm + xDelta, yMm: n.yMm + yDelta } : n);
+  return validateCustomWing({ ...wing, planformType: 'custom', customNodes: next }) ? null : next;
+}
+
 export function seedWingNodes(wing: WingConfig): WingNode[] {
   if (wing.planformType === 'custom' && !validateCustomWing(wing)) return structuredClone(wing.customNodes!);
   const count = wing.planformType === 'elliptical' ? 16 : 1;

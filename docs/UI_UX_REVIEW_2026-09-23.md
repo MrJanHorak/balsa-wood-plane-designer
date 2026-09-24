@@ -30,17 +30,15 @@ remains usable. These are layout checks, not a complete accessibility audit.
 1. **Typography and contrast audit.** The most frequent tiny labels have been
    enlarged, but a design-wide type scale and measured contrast checks remain.
    Verify normal-text pairs against [WCAG 2.2 contrast minimum](https://www.w3.org/WAI/WCAG22/Understanding/contrast-minimum).
-2. **Keyboard and screen-reader walkthrough.** The fuselage dialog and key
-   popovers now have keyboard paths; validate the wing/tail/fin editor, warning
-   announcements, and viewport controls end to end with a screen reader. The
+2. **Keyboard and screen-reader walkthrough.** The fuselage, wing, tail, and fin
+   editors and warning panel now have keyboard paths; validate announcement
+   timing and viewport controls end to end with a screen reader. The
    labeled camera presets offer an alternative to pointer orbiting, but the
    free-orbit canvas itself has no keyboard interaction.
-3. **High-zoom reflow.** Exercise the workbench at 200% and 400% browser zoom,
-   including open editors and expanded test records, against the
+3. **High-zoom reflow.** Short viewport layouts have been checked at 320 × 256
+   CSS pixels, but repeat with actual 200% and 400% browser zoom in the target
+   browsers, including open editors and expanded test records, against the
    [WCAG reflow guidance](https://www.w3.org/WAI/WCAG22/Understanding/reflow).
-4. **File command clarity.** Save, load, export, and import are still icon-only
-   actions in a compact toolbar. A labeled File menu could make their different
-   persistence scopes clearer without crowding the desktop header.
 
 The [WCAG 2.2 target-size minimum](https://www.w3.org/WAI/WCAG22/Understanding/target-size-minimum)
 is a useful check for the remaining small actions, especially delete controls
@@ -75,3 +73,47 @@ inside version and flight-test records.
 - Live browser checks verified the fuselage point nudge, focus return, expanded
   flight form, version focus, and narrow warnings panel. A full screen-reader
   walkthrough and high-zoom reflow test are still needed.
+
+## Wing, tail, and fin editor follow-up
+
+- Focused outline points now respond to arrow keys in the direction they appear
+  on screen. The default step is 1 mm; Shift increases it to 5 mm. Root points
+  remain fixed, and tip points retain their span or height position. Moves that
+  would invalidate the outline are ignored and do not add an undo step.
+- Point labels expose their current coordinates. A short keyboard hint appears
+  in each editor header, with fuller guidance in a disclosure. Selected-point
+  fields display coordinates to 0.1 mm instead of floating-point noise.
+- In the running app, keyboard checks covered wing and tail nudges, Shift+nudge,
+  adding a tail point with Enter, moving it spanwise, undo, Escape focus return,
+  and the rotated fin direction. Geometry tests cover the shared movement and
+  fixed attachment constraints. A full screen-reader walkthrough remains open.
+
+## Short-height reflow and warning-panel follow-up
+
+- At 320 × 256 CSS pixels, the wing and fuselage editor canvases previously
+  collapsed to zero height beneath their toolbars. Both dialogs now scroll
+  internally and retain a 192 px drawing area; tail and fin use the same wing
+  dialog. Keyboard focus remains within each dialog and its canvas can be
+  reached by scrolling. The fuselage outline also has an accessible name.
+- The warning panel previously extended below that viewport with no way to
+  reach its last warnings. Its height is now bounded by the viewport, and the
+  region can be focused and scrolled with Page Down. Escape returns focus to
+  the warning trigger.
+- Browser checks at 320 × 256 verified both canvases, warning scrolling and
+  focus return, and no document-level horizontal overflow. A 320 × 640 check
+  found no horizontal overflow in the expanded flight-test form. A CSS-size
+  simulation does not replace testing real browser zoom or a screen reader.
+
+## File command clarity follow-up
+
+- Replaced the four icon-only persistence buttons with a labeled File control.
+  Its actions explain the difference between the browser's current-design save
+  and a portable JSON download. The action list opens with focus on Save,
+  supports keyboard wrap, closes with Escape, and restores focus to File.
+- The popup fits and scrolls at 320 × 256 CSS pixels, stays within a 320 px
+  phone viewport, and repositions when the window is resized while open.
+  Browser checks covered these states without document-level horizontal scroll.
+- The in-app browser did not change its zoom level in response to browser zoom
+  shortcuts, so real browser zoom and spoken screen-reader output remain
+  unverified. Its accessibility tree shows names and states for the File
+  control, its four actions, editor dialogs, and the warning panel.

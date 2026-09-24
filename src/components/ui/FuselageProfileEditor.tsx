@@ -254,7 +254,7 @@ export const FuselageProfileEditor: React.FC<FuselageProfileEditorProps> = ({ gl
   return (
     <div className="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-sm flex items-center justify-center p-4">
       <div ref={dialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="fuselage-editor-title" onKeyDown={handleDialogKeyDown}
-        className="w-full max-w-5xl h-[85vh] bg-slate-900 border border-slate-700 rounded-xl shadow-2xl flex flex-col overflow-hidden">
+        className="w-full max-w-5xl h-[85dvh] max-h-[calc(100dvh-2rem)] bg-slate-900 border border-slate-700 rounded-xl shadow-2xl flex flex-col overflow-y-auto overflow-x-hidden">
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-slate-800 bg-slate-950/60">
           <div>
@@ -311,9 +311,10 @@ export const FuselageProfileEditor: React.FC<FuselageProfileEditorProps> = ({ gl
         </div>
 
         {/* Canvas */}
-        <div className="flex-1 overflow-hidden bg-[radial-gradient(#1e293b_1px,transparent_1px)] [background-size:16px_16px]">
+        <div className="flex-1 min-h-48 shrink-0 overflow-hidden bg-[radial-gradient(#1e293b_1px,transparent_1px)] [background-size:16px_16px]">
           <svg
             ref={svgRef}
+            aria-label="Fuselage profile outline"
             viewBox={`${minX} ${-maxY} ${viewW} ${viewH}`}
             className="w-full h-full touch-none"
             onPointerMove={handlePointerMove}
