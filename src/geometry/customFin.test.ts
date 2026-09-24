@@ -4,7 +4,7 @@ import { DEFAULT_GLIDER } from '@/constants/presets';
 import { finAsWing, wingAsFin, getFinProfilePoints, validateCustomFin } from './customFin';
 import { seedWingNodes, resizeWing } from './customWing';
 import { polygonArea } from './core';
-import { getFuselageContourPoints, calculateGliderMassAndCG } from '@/physics/massBalance';
+import { getFuselageContourPoints, getFuselageProfilePoints, calculateGliderMassAndCG } from '@/physics/massBalance';
 import { generateFinFlatPattern, generateFuselageFlatPattern } from './patterns2d';
 import { createFinMesh, createFuselageMesh } from './extrusion3d';
 import { createPlaneDesignDocument, serializePlaneDesign, deserializePlaneDesign } from '@/design/document';
@@ -49,6 +49,43 @@ describe('vertical fin editing', () => {
     g.fuselage.profileStyle = 'custom';
     g.fuselage.customNodes = [{ xMm: 0, yMm: 0 }, { xMm: 0, yMm: 20 }, { xMm: 260, yMm: 20 }, { xMm: 260, yMm: 0 }].map((n, i) => ({ ...n, id: String(i), label: String(i) }));
     expect(Math.max(...getFuselageContourPoints(g).map(p => p.y))).toBeGreaterThan(40);
+  });
+  it('keeps new custom body nodes separate from the integral fin controls', () => {
+    const g = structuredClone(DEFAULT_GLIDER);
+    const bodyOnly = getFuselageProfilePoints({
+      ...g, verticalStabilizer: { ...g.verticalStabilizer, isIntegralWithFuselage: false },
+    });
+    g.fuselage.profileStyle = 'custom';
+    g.fuselage.customNodes = bodyOnly.map((p, i) => ({ id: `body-${i}`, label: `Body ${i}`, xMm: p.x, yMm: p.y }));
+    g.fuselage.integralFinInCustomNodes = false;
+    const initial = getFuselageContourPoints(g);
+    const initialTop = Math.max(...initial.map(p => p.y));
+    const initialMass = calculateGliderMassAndCG(g).breakdown.fuselageGrams;
+    g.verticalStabilizer.heightMm += 15;
+    const taller = getFuselageContourPoints(g);
+    expect(Math.max(...taller.map(p => p.y))).toBeGreaterThan(initialTop + 10);
+    expect(calculateGliderMassAndCG(g).breakdown.fuselageGrams).toBeGreaterThan(initialMass);
+    expect(generateFuselageFlatPattern(g).boundingBox.maxY).toBe(Math.max(...taller.map(p => p.y)));
+    g.verticalStabilizer.isIntegralWithFuselage = false;
+    expect(Math.max(...getFuselageContourPoints(g).map(p => p.y))).toBeLessThan(initialTop);
+  });
+  it('preserves an older custom fuselage outline with a baked standard fin', () => {
+    const g = structuredClone(DEFAULT_GLIDER);
+    const oldOutline = getFuselageProfilePoints(g);
+    oldOutline.splice(8, 0,
+      { x: 225, y: 12 }, { x: 240, y: 54 }, { x: 260, y: 54 }, { x: 263, y: 12 });
+    g.fuselage.profileStyle = 'custom';
+    g.fuselage.customNodes = oldOutline.map((p, i) => ({ id: `old-${i}`, label: `Point ${i}`, xMm: p.x, yMm: p.y }));
+    const before = getFuselageContourPoints(g);
+    g.verticalStabilizer.heightMm += 20;
+    expect(getFuselageContourPoints(g)).toEqual(before);
+  });
+  it('moves the integral fin when the tail position slider changes', () => {
+    const g = structuredClone(DEFAULT_GLIDER);
+    const before = getFuselageContourPoints(g).filter(p => p.y > 45);
+    g.fuselage.tailSlot.xPositionMm -= 12;
+    const moved = getFuselageContourPoints(g).filter(p => p.y > 45);
+    expect(Math.min(...moved.map(p => p.x))).toBeLessThan(Math.min(...before.map(p => p.x)) - 8);
   });
   it('rescales fin nodes and preserves attachment mode', () => {
     const fin = design(true).verticalStabilizer;

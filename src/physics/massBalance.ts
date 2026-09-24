@@ -18,7 +18,7 @@ import {
  * Returns normalized vertices (X: 0->length, Y: 0->height)
  */
 export function getFuselageProfilePoints(glider: GliderDesign): Point2D[] {
-  const { fuselage, verticalStabilizer: fin } = glider;
+  const { fuselage } = glider;
 
   // 1. Custom Draggable Nodes Mode
   if (fuselage.profileStyle === 'custom' && fuselage.customNodes && fuselage.customNodes.length >= 3) {
@@ -102,31 +102,44 @@ export function getFuselageProfilePoints(glider: GliderDesign): Point2D[] {
     }
   }
 
-  // Integral vertical fin: when the fin is "cut from the same sheet" as the
-  // fuselage rather than built as a separate slotted piece, it must actually
-  // appear in the fuselage's own silhouette — otherwise it's invisible in
-  // the 3D view AND its mass silently vanishes from physics (neither the
-  // renderer nor calculateGliderMassAndCG ever draws/weighs it elsewhere).
-  if (fin.isIntegralWithFuselage && fin.heightMm > 0 && fin.profileType !== 'custom') {
-    points = insertIntegralFinBump(points, fuselage.tailSlot.xPositionMm, fin);
-  }
-
   return points;
 }
 
-/** Preserve sharp custom-fin corners while smoothing only the body. The root
- * embeds 1 mm into the upper body at the nearest station to the tail mount. */
+/** Join an integral fin to the smoothed body at the exact tail station.
+ * Preserve sharp fin corners and embed its root 1 mm into the body. */
 export function getFuselageContourPoints(glider: GliderDesign): Point2D[] {
   const body = sampleSmoothClosedCurve(getFuselageProfilePoints(glider), 8);
   const fin = glider.verticalStabilizer;
-  if (!fin.isIntegralWithFuselage || fin.profileType !== 'custom') return body;
-  const upper = body.filter(p => p.y > 0.5);
-  const base = upper.reduce((best, p) => Math.abs(p.x - glider.fuselage.tailSlot.xPositionMm) < Math.abs(best.x - glider.fuselage.tailSlot.xPositionMm) ? p : best, upper[0] ?? body[0]);
+  if (!fin.isIntegralWithFuselage) return body;
+  // Older custom bodies may already contain a hand-edited fin. Preserve that
+  // silhouette rather than adding a second fin on top of it.
+  if (glider.fuselage.profileStyle === 'custom' &&
+      glider.fuselage.integralFinInCustomNodes !== false && fin.profileType !== 'custom') return body;
+  const base = findUpperBodyAtX(body, glider.fuselage.tailSlot.xPositionMm);
   const outline = getFinProfilePoints(fin).map(p => [p.x + base.x, p.y + base.y - 1] as [number, number]);
   const joined = polygonClipping.union([body.map(p => [p.x, p.y] as [number, number])], [outline]);
   // The embedded root ensures a connected fin on a valid body contour.
   const largest = joined.sort((a, b) => polygonArea(b[0].map(([x, y]) => ({ x, y }))) - polygonArea(a[0].map(([x, y]) => ({ x, y }))))[0];
   return largest ? largest[0].slice(0, -1).map(([x, y]) => ({ x, y })) : body;
+}
+
+function findUpperBodyAtX(body: Point2D[], targetX: number): Point2D {
+  let closest: Point2D | null = null;
+  let bestDistance = Infinity;
+  for (let i = 0; i < body.length; i++) {
+    const a = body[i], b = body[(i + 1) % body.length];
+    const dx = b.x - a.x;
+    const t = Math.max(0, Math.min(1, dx === 0 ? 0 : (targetX - a.x) / dx));
+    const point = { x: a.x + t * dx, y: a.y + t * (b.y - a.y) };
+    if (point.y <= 0.5) continue;
+    const distance = Math.abs(point.x - targetX);
+    if (distance < bestDistance - 0.001 ||
+        (Math.abs(distance - bestDistance) <= 0.001 && point.y > (closest?.y ?? -Infinity))) {
+      closest = point;
+      bestDistance = distance;
+    }
+  }
+  return closest ?? body[0];
 }
 
 /**
@@ -153,45 +166,6 @@ function insertBellyDip(points: Point2D[], wingX: number, wingLen: number, dipY:
       }
     }
   }
-  return result;
-}
-
-/**
- * Inserts a fin-shaped bump into the fuselage's top-edge silhouette near the
- * tail, at the point where the fuselage top meets its highest point after
- * the tail boom taper. Locates the topmost point at or after the tail slot's
- * X position generically, so it works across all profile styles.
- */
-function insertIntegralFinBump(
-  points: Point2D[],
-  tailSlotX: number,
-  fin: GliderDesign['verticalStabilizer']
-): Point2D[] {
-  // Find the vertex closest to (but not past) the tail slot along the top edge
-  let insertAfterIdx = -1;
-  let bestDist = Infinity;
-  for (let i = 0; i < points.length; i++) {
-    const p = points[i];
-    if (p.y > 0.5 && Math.abs(p.x - tailSlotX) < bestDist) {
-      bestDist = Math.abs(p.x - tailSlotX);
-      insertAfterIdx = i;
-    }
-  }
-  if (insertAfterIdx === -1) return points;
-
-  const base = points[insertAfterIdx];
-  const sweepRad = (fin.sweepDeg * Math.PI) / 180;
-  const tipOffset = fin.heightMm * Math.tan(sweepRad);
-
-  const bumpPoints: Point2D[] = [
-    { x: base.x, y: base.y },
-    { x: base.x + tipOffset, y: base.y + fin.heightMm },
-    { x: base.x + tipOffset + fin.tipChordMm, y: base.y + fin.heightMm },
-    { x: base.x + fin.rootChordMm, y: base.y },
-  ];
-
-  const result = [...points];
-  result.splice(insertAfterIdx, 1, ...bumpPoints);
   return result;
 }
 
@@ -253,8 +227,7 @@ export function calculateGliderMassAndCG(glider: GliderDesign): {
   const tailCy = glider.fuselage.tailSlot.yPositionMm;
 
   // 4. Fin (Vertical Stabilizer). When integral with the fuselage, its shape
-  // is folded into the fuselage's own silhouette (see insertIntegralFinBump
-  // in getFuselageProfilePoints above) and its mass/area is already counted
+  // is folded into the fuselage's own silhouette and its mass/area is already counted
   // in fuselageGrams above — attributing it again here would double-count it.
   let finGrams = 0;
   let finCx = tailCx;

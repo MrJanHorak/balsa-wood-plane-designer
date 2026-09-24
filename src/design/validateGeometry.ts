@@ -44,6 +44,7 @@ export function isGliderGeometry(v: unknown): v is GliderDesign {
     || typeof f.autoReinforceSpine !== 'boolean' || !slot(f.wingSlot) || !slot(f.tailSlot)
     || !choice(f.mountType, ['through_slot', 'top_saddle', 'bottom_saddle', 'parasol_pylon'])
     || !choice(f.profileStyle, ['trainer', 'sport_jet', 'curved_classic', 'sky_streak', 'custom'])
+    || (f.integralFinInCustomNodes !== undefined && typeof f.integralFinInCustomNodes !== 'boolean')
     || (f.customNodes !== undefined && !nodes(f.customNodes, 'isFixed'))
     || (f.profileStyle === 'custom' && !nodes(f.customNodes, 'isFixed'))) return false;
   if (!surface(w) || !positive(w.spanMm) || !choice(w.planformType, planforms)

@@ -115,6 +115,12 @@
 
 - Vertical-fin editing now supports a single upright custom profile, integral or
   separate attachment, and synchronized cut patterns, mass, and JSON documents.
+  Integral fins now join the fuselage contour at the tail station, so Tail Position,
+  Fin Height, and Fin Root Chord continue to affect preview, cutout, and mass after
+  creating a new custom fuselage. The simple UI uses those sliders for an integral
+  fin and reserves the dedicated shape editor for separate fins or Advanced STEM.
+  Older custom fuselages may already contain hand-edited fin points; they remain
+  unchanged and show a message instead of offering ineffective fin size sliders.
 - Fuselage mass and centroid now use the remaining sheet after slot subtraction.
   Physics, 3D, SVG and structural checks share physical cut definitions. Overlaps
   are removed once, boundary cuts become notches, and all remaining regions count.

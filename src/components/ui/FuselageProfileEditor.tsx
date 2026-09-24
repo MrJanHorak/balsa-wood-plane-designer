@@ -2,9 +2,10 @@
 
 import React, { useRef, useState, useCallback } from 'react';
 import { GliderDesign, FuselageNode } from '@/types/glider';
-import { getFuselageProfilePoints } from '@/physics/massBalance';
+import { getFuselageContourPoints, getFuselageProfilePoints } from '@/physics/massBalance';
 import { pointsToSmoothClosedPath, calculateSlotPoints, pointsToPath } from '@/geometry/core';
 import { X, Trash2, RotateCcw, Info, Undo2, Redo2 } from 'lucide-react';
+import { useSvgHitRadius } from './useSvgHitRadius';
 
 interface FuselageProfileEditorProps {
   glider: GliderDesign;
@@ -23,6 +24,8 @@ function seedNodesFromCurrentProfile(glider: GliderDesign): FuselageNode[] {
   if (glider.fuselage.profileStyle === 'custom' && glider.fuselage.customNodes && glider.fuselage.customNodes.length >= 3) {
     return glider.fuselage.customNodes;
   }
+  // Start a new custom body without baking the generated fin into its nodes.
+  // The fin remains adjustable through the Tail controls after the first edit.
   const points = getFuselageProfilePoints(glider);
   return points.map((p, i) => ({
     id: nextNodeId(),
@@ -40,6 +43,10 @@ export const FuselageProfileEditor: React.FC<FuselageProfileEditorProps> = ({ gl
   const [future, setFuture] = useState<FuselageNode[][]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
+  const legacyEmbeddedFin = glider.verticalStabilizer.isIntegralWithFuselage &&
+    glider.verticalStabilizer.profileType !== 'custom' &&
+    glider.fuselage.profileStyle === 'custom' &&
+    glider.fuselage.integralFinInCustomNodes !== false;
   const dragStartNodesRef = useRef<FuselageNode[] | null>(null);
   const svgRef = useRef<SVGSVGElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -61,6 +68,8 @@ export const FuselageProfileEditor: React.FC<FuselageProfileEditorProps> = ({ gl
           ...glider.fuselage,
           profileStyle: 'custom',
           customNodes: nextNodes,
+          integralFinInCustomNodes: glider.fuselage.profileStyle === 'custom'
+            ? glider.fuselage.integralFinInCustomNodes : false,
         },
       });
     },
@@ -80,7 +89,9 @@ export const FuselageProfileEditor: React.FC<FuselageProfileEditorProps> = ({ gl
     setSelectedId(null);
     onChange({
       ...glider,
-      fuselage: { ...glider.fuselage, profileStyle: 'custom', customNodes: previous },
+      fuselage: { ...glider.fuselage, profileStyle: 'custom', customNodes: previous,
+        integralFinInCustomNodes: glider.fuselage.profileStyle === 'custom'
+          ? glider.fuselage.integralFinInCustomNodes : false },
     });
   };
 
@@ -93,7 +104,9 @@ export const FuselageProfileEditor: React.FC<FuselageProfileEditorProps> = ({ gl
     setSelectedId(null);
     onChange({
       ...glider,
-      fuselage: { ...glider.fuselage, profileStyle: 'custom', customNodes: next },
+      fuselage: { ...glider.fuselage, profileStyle: 'custom', customNodes: next,
+        integralFinInCustomNodes: glider.fuselage.profileStyle === 'custom'
+          ? glider.fuselage.integralFinInCustomNodes : false },
     });
   };
 
@@ -185,32 +198,44 @@ export const FuselageProfileEditor: React.FC<FuselageProfileEditorProps> = ({ gl
         ...glider.fuselage,
         profileStyle: 'trainer',
         customNodes: undefined,
+        integralFinInCustomNodes: undefined,
       },
     });
     onClose();
   };
 
-  // View bounds: fit all nodes plus the wing/tail slots, with padding.
+  const previewGlider: GliderDesign = {
+    ...glider,
+    fuselage: { ...glider.fuselage, profileStyle: 'custom', customNodes: nodes,
+      integralFinInCustomNodes: glider.fuselage.profileStyle === 'custom'
+        ? glider.fuselage.integralFinInCustomNodes : false },
+  };
+  const assembledContour = getFuselageContourPoints(previewGlider);
+
+  // View bounds: fit the whole cutout, including the generated fin and slots.
   const allX = [
     ...nodes.map((n) => n.xMm),
+    ...assembledContour.map((p) => p.x),
     glider.fuselage.wingSlot.xPositionMm,
     glider.fuselage.wingSlot.xPositionMm + glider.fuselage.wingSlot.lengthMm,
     glider.fuselage.tailSlot.xPositionMm,
     glider.fuselage.tailSlot.xPositionMm + glider.fuselage.tailSlot.lengthMm,
   ];
-  const allY = [...nodes.map((n) => n.yMm), 0];
+  const allY = [...nodes.map((n) => n.yMm), ...assembledContour.map((p) => p.y), 0];
   const minX = Math.min(...allX) - PADDING;
   const maxX = Math.max(...allX) + PADDING;
   const minY = Math.min(...allY) - PADDING;
   const maxY = Math.max(...allY) + PADDING;
   const viewW = maxX - minX;
   const viewH = maxY - minY;
+  const hitRadius = useSvgHitRadius(svgRef, viewW, viewH, viewW / 130);
 
   // Smoothed through the actual node positions (Catmull-Rom, same as the
   // 2D cut-pattern export) so the body reads as a curved contour instead
   // of straight facets between drag handles — the handles themselves stay
   // exactly where the user put them; only the connecting outline is curved.
   const outlinePath = pointsToSmoothClosedPath(nodes.map((n) => ({ x: n.xMm, y: n.yMm })));
+  const assembledOutlinePath = pointsToPath(assembledContour);
 
   const selectedNode = nodes.find((n) => n.id === selectedId) ?? null;
 
@@ -260,7 +285,9 @@ export const FuselageProfileEditor: React.FC<FuselageProfileEditorProps> = ({ gl
           <div>
             <h2 id="fuselage-editor-title" className="text-sm font-bold text-slate-100">Custom Fuselage Shape Designer</h2>
             <p className="text-xs text-slate-300">
-              Drag points to reshape the body. Click a point then use the buttons below to add or remove points.
+              {legacyEmbeddedFin
+                ? 'Drag points to reshape the saved body and its integral fin.'
+                : 'Drag points to reshape the body. The integral fin follows the controls in Tail.'}
             </p>
           </div>
           <button type="button" onClick={onClose} aria-label="Close fuselage shape editor" className="p-1.5 rounded hover:bg-slate-800 text-slate-400 hover:text-slate-100">
@@ -348,8 +375,11 @@ export const FuselageProfileEditor: React.FC<FuselageProfileEditorProps> = ({ gl
               strokeDasharray={`${viewW / 100} ${viewW / 200}`}
             />
 
-            {/* Fuselage outline */}
-            <path d={outlinePath} fill="rgba(239, 68, 68, 0.12)" stroke="#ef4444" strokeWidth={viewW / 250} />
+            {/* The assembled cutout includes the generated integral fin. The
+                editable handles belong to the body profile only. */}
+            <path d={assembledOutlinePath} fill="rgba(239, 68, 68, 0.12)" stroke="#ef4444" strokeWidth={viewW / 250} pointerEvents="none" />
+            {glider.verticalStabilizer.isIntegralWithFuselage && previewGlider.fuselage.integralFinInCustomNodes === false &&
+              <path d={outlinePath} fill="none" stroke="#94a3b8" strokeWidth={viewW / 500} strokeDasharray={`${viewW / 120} ${viewW / 180}`} pointerEvents="none" />}
 
             {/* Edge midpoint "insert point" handles */}
             {nodes.map((n, i) => {
@@ -371,38 +401,40 @@ export const FuselageProfileEditor: React.FC<FuselageProfileEditorProps> = ({ gl
                   className="cursor-pointer"
                   style={{ opacity: 0.5 }}
                 >
-                  <circle cx={midX} cy={midY} r={viewW / 180} fill="#0f172a" stroke="#64748b" strokeWidth={viewW / 500} />
-                  <line x1={midX - viewW / 300} y1={midY} x2={midX + viewW / 300} y2={midY} stroke="#94a3b8" strokeWidth={viewW / 600} />
-                  <line x1={midX} y1={midY - viewW / 300} x2={midX} y2={midY + viewW / 300} stroke="#94a3b8" strokeWidth={viewW / 600} />
+                  <circle cx={midX} cy={midY} r={hitRadius} fill="transparent" pointerEvents="all" />
+                  <circle cx={midX} cy={midY} r={viewW / 180} fill="#0f172a" stroke="#64748b" strokeWidth={viewW / 500} pointerEvents="none" />
+                  <line x1={midX - viewW / 300} y1={midY} x2={midX + viewW / 300} y2={midY} stroke="#94a3b8" strokeWidth={viewW / 600} pointerEvents="none" />
+                  <line x1={midX} y1={midY - viewW / 300} x2={midX} y2={midY + viewW / 300} stroke="#94a3b8" strokeWidth={viewW / 600} pointerEvents="none" />
                 </g>
               );
             })}
 
             {/* Draggable control point handles */}
             {nodes.map((n) => (
-              <circle
-                key={n.id}
-                role="button"
-                tabIndex={0}
-                aria-label={`Move ${n.label}, x ${n.xMm.toFixed(1)} mm, y ${n.yMm.toFixed(1)} mm`}
-                cx={n.xMm}
-                cy={n.yMm}
-                r={viewW / 130}
-                fill={n.id === selectedId ? '#f59e0b' : '#22d3ee'}
-                stroke="#0f172a"
-                strokeWidth={viewW / 400}
-                className="cursor-grab active:cursor-grabbing"
-                onFocus={() => setSelectedId(n.id)}
-                onKeyDown={(event) => handlePointKeyDown(event, n)}
-                onPointerDown={(e) => handlePointerDownNode(e, n.id)}
-              />
+              <g key={n.id}>
+                <circle cx={n.xMm} cy={n.yMm} r={viewW / 130} fill={n.id === selectedId ? '#f59e0b' : '#22d3ee'} stroke="#0f172a" strokeWidth={viewW / 400} pointerEvents="none" />
+                <circle
+                  role="button"
+                  tabIndex={0}
+                  aria-label={`Move ${n.label}, x ${n.xMm.toFixed(1)} mm, y ${n.yMm.toFixed(1)} mm`}
+                  cx={n.xMm}
+                  cy={n.yMm}
+                  r={hitRadius}
+                  fill="transparent"
+                  pointerEvents="all"
+                  className="cursor-grab active:cursor-grabbing"
+                  onFocus={() => setSelectedId(n.id)}
+                  onKeyDown={(event) => handlePointKeyDown(event, n)}
+                  onPointerDown={(e) => handlePointerDownNode(e, n.id)}
+                />
+              </g>
             ))}
             </g>
           </svg>
         </div>
 
         <details className="border-t border-slate-800 bg-slate-950/60 px-4 py-2.5 text-xs text-slate-300">
-          <summary className="flex cursor-pointer items-center gap-2 font-semibold text-cyan-200">
+          <summary className="flex min-h-8 cursor-pointer items-center gap-2 font-semibold text-cyan-200">
             <Info className="h-3.5 w-3.5 flex-shrink-0" /> Editing tips and keyboard controls
           </summary>
           <p className="mt-2 leading-relaxed">

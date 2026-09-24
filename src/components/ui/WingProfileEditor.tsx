@@ -6,6 +6,7 @@ import { seedWingNodes, validateCustomWing, tailAsWing, wingAsTail, nudgeSurface
 import { calculateCustomWingPlanformPoints, pointsToPath, polygonArea } from '@/geometry/core';
 import { finAsWing, wingAsFin } from '@/geometry/customFin';
 import { Info } from 'lucide-react';
+import { useSvgHitRadius } from './useSvgHitRadius';
 
 interface Props { glider: GliderDesign; onChange: (design: GliderDesign) => void; onClose: () => void; surface?: 'wing' | 'tail' | 'fin' }
 const button = 'rounded border border-slate-600 px-3 py-1.5 text-xs hover:bg-slate-700 disabled:opacity-30';
@@ -41,6 +42,7 @@ function SurfaceProfileEditor({ glider, onChange, onClose, surface = 'wing' }: P
     return { min, width: max - min, span: span * 1.18 };
   });
   const radius = Math.max(bounds.width, bounds.span) / 95;
+  const hitRadius = useSvgHitRadius(svgRef, isFin ? bounds.width : bounds.span, isFin ? glider.wing.spanMm / 2 + 40 : bounds.width, radius);
   const publish = (wing: WingConfig) => {
     currentWing.current = wing;
     setNodes(seedWingNodes(wing));
@@ -145,14 +147,18 @@ function SurfaceProfileEditor({ glider, onChange, onClose, surface = 'wing' }: P
           if (Math.abs(n.yMm - next.yMm) < 0.2 || nodes.length >= 128) return null;
           const insert = () => { const point = { id: crypto.randomUUID(), label: 'Edge point', xMm: (n.xMm + next.xMm) / 2, yMm: (n.yMm + next.yMm) / 2 }; accept([...nodes.slice(0, i + 1), point, ...nodes.slice(i + 1)]); setSelected(point.id); };
           return <g key={`add-${n.id}`} role="button" tabIndex={0} aria-label={`Add point after ${n.label}`} onClick={insert} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); insert(); } }} className="cursor-pointer">
-            <circle cx={(n.yMm + next.yMm) / 2} cy={(n.xMm + next.xMm) / 2} r={radius * 0.8} fill="#0f172a" stroke="#64748b" />
-            <text x={(n.yMm + next.yMm) / 2} y={(n.xMm + next.xMm) / 2} textAnchor="middle" dominantBaseline="central" fontSize={radius * 1.3} fill="#e2e8f0">+</text>
+            <circle cx={(n.yMm + next.yMm) / 2} cy={(n.xMm + next.xMm) / 2} r={hitRadius} fill="transparent" pointerEvents="all" />
+            <circle cx={(n.yMm + next.yMm) / 2} cy={(n.xMm + next.xMm) / 2} r={radius * 0.8} fill="#0f172a" stroke="#64748b" pointerEvents="none" />
+            <text x={(n.yMm + next.yMm) / 2} y={(n.xMm + next.xMm) / 2} textAnchor="middle" dominantBaseline="central" fontSize={radius * 1.3} fill="#e2e8f0" pointerEvents="none">+</text>
           </g>;
         })}
-        {nodes.map(n => <circle key={n.id} role="button" tabIndex={0} aria-label={`Move ${n.label}, chordwise ${n.xMm.toFixed(1)} mm, ${isFin ? 'height' : 'spanwise'} ${n.yMm.toFixed(1)} mm${n.yMm === 0 ? ', fixed root' : ''}`} cx={n.yMm} cy={n.xMm} r={radius} fill={selected === n.id ? '#fbbf24' : n.yMm === 0 ? '#64748b' : '#22d3ee'} stroke="#0f172a" className="cursor-grab" onFocus={() => setSelected(n.id)} onKeyDown={e => handlePointKeyDown(e, n)} onPointerDown={e => {
+        {nodes.map(n => <g key={n.id}>
+          <circle cx={n.yMm} cy={n.xMm} r={radius} fill={selected === n.id ? '#fbbf24' : n.yMm === 0 ? '#64748b' : '#22d3ee'} stroke="#0f172a" pointerEvents="none" />
+          <circle role="button" tabIndex={0} aria-label={`Move ${n.label}, chordwise ${n.xMm.toFixed(1)} mm, ${isFin ? 'height' : 'spanwise'} ${n.yMm.toFixed(1)} mm${n.yMm === 0 ? ', fixed root' : ''}`} cx={n.yMm} cy={n.xMm} r={hitRadius} fill="transparent" pointerEvents="all" className="cursor-grab" onFocus={() => setSelected(n.id)} onKeyDown={e => handlePointKeyDown(e, n)} onPointerDown={e => {
           setSelected(n.id); if (n.yMm === 0) return;
           drag.current = { id: n.id, before: currentWing.current }; svgRef.current?.setPointerCapture(e.pointerId); e.preventDefault();
-        }} />)}
+        }} />
+        </g>)}
         </g>
       </svg>
       <div className="p-3 border-t border-slate-700 text-xs space-y-2">
@@ -161,7 +167,7 @@ function SurfaceProfileEditor({ glider, onChange, onClose, surface = 'wing' }: P
         <p role="status" className="text-amber-300 min-h-4">{error}</p>
       </div>
       <details className="border-t border-slate-700 bg-slate-950/60 px-3 py-2.5 text-xs text-slate-300">
-        <summary className="flex cursor-pointer items-center gap-2 font-semibold text-cyan-200"><Info className="h-3.5 w-3.5 flex-shrink-0" /> Editing tips and keyboard controls</summary>
+        <summary className="flex min-h-8 cursor-pointer items-center gap-2 font-semibold text-cyan-200"><Info className="h-3.5 w-3.5 flex-shrink-0" /> Editing tips and keyboard controls</summary>
         <p className="mt-2 leading-relaxed">Tab to a point and use the arrow keys to move it in the direction shown by 1 mm (Shift for 5 mm). Root attachments stay fixed, and tip points stay at the same {isFin ? 'height' : 'span'}. Tab to a + and press Enter or Space to add a point. Delete removes a selected interior point. Resize with the dimension sliders. Changes update the model, cutting pattern, and balance calculations.</p>
       </details>
     </div>

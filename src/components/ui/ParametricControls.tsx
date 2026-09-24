@@ -42,6 +42,10 @@ export const ParametricControls: React.FC<ParametricControlsProps> = ({
   onOpenFinEditor,
 }) => {
   const isSimple = mode === 'simple';
+  const legacyEmbeddedFin = glider.verticalStabilizer.isIntegralWithFuselage &&
+    glider.verticalStabilizer.profileType !== 'custom' &&
+    glider.fuselage.profileStyle === 'custom' &&
+    glider.fuselage.integralFinInCustomNodes !== false;
   const [activeSection, setActiveSection] = useState<'wing' | 'fuse' | 'tail' | 'ballast'>('wing');
 
   const updateWing = (fields: Partial<GliderDesign['wing']>) => {
@@ -494,11 +498,19 @@ export const ParametricControls: React.FC<ParametricControlsProps> = ({
             />
             <div className="mt-4 pt-3 border-t border-slate-700">
               <h3 className="text-sm font-semibold mb-2">Vertical Fin</h3>
-              <button onClick={onOpenFinEditor} className="w-full mb-3 rounded-lg border border-cyan-700 bg-cyan-950/40 p-2 text-xs text-cyan-200 hover:bg-cyan-900/50">{glider.verticalStabilizer.profileType === 'custom' ? 'Edit Custom Fin Shape' : 'Design Your Own Fin Shape'}</button>
+              {(!glider.verticalStabilizer.isIntegralWithFuselage || !isSimple || glider.verticalStabilizer.profileType === 'custom') &&
+                <button onClick={onOpenFinEditor} className="w-full mb-3 rounded-lg border border-cyan-700 bg-cyan-950/40 p-2 text-xs text-cyan-200 hover:bg-cyan-900/50">{glider.verticalStabilizer.profileType === 'custom' ? 'Edit Custom Fin Shape' : 'Design Your Own Fin Shape'}</button>}
               <label className="flex gap-2 text-xs text-slate-300 mb-2"><input type="checkbox" checked={glider.verticalStabilizer.isIntegralWithFuselage} onChange={e => onChange({ ...glider, verticalStabilizer: { ...glider.verticalStabilizer, isIntegralWithFuselage: e.target.checked } })} />Cut fin with the fuselage</label>
-              <p className="text-xs text-slate-300 mb-2">{glider.verticalStabilizer.isIntegralWithFuselage ? 'Custom fins embed 1 mm into the upper body near the tail mount.' : 'Separate fin appears as its own cut-sheet part for a glued attachment.'}</p>
-              <SliderInput label="Fin Height" value={glider.verticalStabilizer.heightMm} min={10} max={90} step={1} unit="mm" onChange={heightMm => updateFinSize({ heightMm })} />
-              <SliderInput label="Fin Root Chord" value={glider.verticalStabilizer.rootChordMm} min={10} max={70} step={1} unit="mm" onChange={rootChordMm => updateFinSize({ rootChordMm })} />
+              <p className="text-xs text-slate-300 mb-2">{legacyEmbeddedFin
+                ? 'The fin is drawn into this saved body outline.'
+                : glider.verticalStabilizer.isIntegralWithFuselage
+                  ? 'The fin is included in the fuselage cutout and follows the tail position.'
+                  : 'Separate fin appears as its own cut-sheet part for a glued attachment.'}</p>
+              {legacyEmbeddedFin ?
+                <p className="rounded border border-amber-800/70 bg-amber-950/30 p-2 text-xs text-amber-200">This saved custom body already contains its fin outline. Edit it in Body, or reset the body to a standard shape to use the fin sliders.</p> : <>
+                  <SliderInput label="Fin Height" value={glider.verticalStabilizer.heightMm} min={10} max={90} step={1} unit="mm" onChange={heightMm => updateFinSize({ heightMm })} />
+                  <SliderInput label="Fin Root Chord" value={glider.verticalStabilizer.rootChordMm} min={10} max={70} step={1} unit="mm" onChange={rootChordMm => updateFinSize({ rootChordMm })} />
+                </>}
               <p className="text-xs text-slate-300">Fin edits affect weight and balance. Directional (yaw) stability is not yet simulated.</p>
             </div>
           </div>

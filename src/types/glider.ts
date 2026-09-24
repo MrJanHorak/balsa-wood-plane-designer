@@ -49,6 +49,9 @@ export interface FuselageConfig {
   ballastPositionXMm: number; // Center of ballast from nose (e.g. 10mm)
   profileStyle: 'trainer' | 'sport_jet' | 'curved_classic' | 'sky_streak' | 'custom';
   customNodes?: FuselageNode[]; // Draggable control nodes for custom profile
+  // False for new custom bodies: the integral fin is generated from FinConfig.
+  // Missing on older saved designs, whose custom nodes may already contain the fin.
+  integralFinInCustomNodes?: boolean;
 }
 
 export interface WingNode {

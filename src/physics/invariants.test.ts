@@ -2,10 +2,10 @@ import { describe, it, expect } from 'vitest';
 import { GLIDER_PRESETS } from '@/constants/presets';
 import { camberArcLength } from '@/geometry/wingBlank';
 import { GliderDesign, getEffectiveTipChordMm, getWingPlanformKind } from '@/types/glider';
-import { calculateGliderMassAndCG, getFuselageProfilePoints } from './massBalance';
+import { calculateGliderMassAndCG, getFuselageContourPoints } from './massBalance';
 import { analyzeGliderStability } from './stability';
 import { generateWingFlatPattern, generateFuselageFlatPattern } from '@/geometry/patterns2d';
-import { polygonArea, calculateWingPlanformPoints, sampleSmoothClosedCurve } from '@/geometry/core';
+import { polygonArea, calculateWingPlanformPoints } from '@/geometry/core';
 
 const presets = Object.values(GLIDER_PRESETS);
 
@@ -62,7 +62,7 @@ describe('canonical geometry invariants (cross-system agreement)', () => {
       });
 
       it('sizes the cut sheet for the smoothed fuselage rather than its control points', () => {
-        const fuselagePoints = sampleSmoothClosedCurve(getFuselageProfilePoints(preset), 8);
+        const fuselagePoints = getFuselageContourPoints(preset);
         const fuselageBox = generateFuselageFlatPattern(preset).boundingBox;
         // Smoothing can extend beyond the control nodes; those extrema must
         // fit the sheet too, without clipping the exported cut contour.
@@ -74,12 +74,12 @@ describe('canonical geometry invariants (cross-system agreement)', () => {
 
       if (preset.verticalStabilizer.isIntegralWithFuselage) {
         it('folds the integral fin into the fuselage silhouette (regression: previously invisible with zero mass)', () => {
-          const withFin = getFuselageProfilePoints(preset);
+          const withFin = getFuselageContourPoints(preset);
           const withoutFin: GliderDesign = {
             ...preset,
-            verticalStabilizer: { ...preset.verticalStabilizer, heightMm: 0 },
+            verticalStabilizer: { ...preset.verticalStabilizer, isIntegralWithFuselage: false },
           };
-          const withoutFinPoints = getFuselageProfilePoints(withoutFin);
+          const withoutFinPoints = getFuselageContourPoints(withoutFin);
           const areaWithFin = polygonArea(withFin);
           const areaWithoutFin = polygonArea(withoutFinPoints);
           // A non-zero-height integral fin must add area (and therefore mass)

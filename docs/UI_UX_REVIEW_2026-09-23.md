@@ -27,9 +27,10 @@ remains usable. These are layout checks, not a complete accessibility audit.
 
 ## Remaining priorities
 
-1. **Typography and contrast audit.** The most frequent tiny labels have been
-   enlarged, but a design-wide type scale and measured contrast checks remain.
-   Verify normal-text pairs against [WCAG 2.2 contrast minimum](https://www.w3.org/WAI/WCAG22/Understanding/contrast-minimum).
+1. **Finish visual accessibility checks.** A computed-color pass found and fixed
+   one normal-text contrast miss. Continue with SVG pattern text, image/gradient
+   backgrounds, dense custom-node targets, and a design-wide type scale. Check
+   against [WCAG 2.2 contrast minimum](https://www.w3.org/WAI/WCAG22/Understanding/contrast-minimum).
 2. **Keyboard and screen-reader walkthrough.** The fuselage, wing, tail, and fin
    editors and warning panel now have keyboard paths; validate announcement
    timing and viewport controls end to end with a screen reader. The
@@ -117,3 +118,36 @@ inside version and flight-test records.
   shortcuts, so real browser zoom and spoken screen-reader output remain
   unverified. Its accessibility tree shows names and states for the File
   control, its four actions, editor dialogs, and the warning panel.
+
+## Measured contrast and target-size follow-up
+
+- A computed-color pass found the small "Fuselage Profile" scale label at about
+  3.8:1 on the default view. It now uses a lighter slate text color. Rechecks of
+  sampled educational and Advanced STEM screens, the 2D toolbar, and open File,
+  warning, version, wing, and fuselage panels found no calculated normal-text
+  pair below 4.5:1. The calculation composites CSS colors but does not assess
+  SVG pattern lettering, gradient-clipped text, or every possible design state.
+- The default shape-editor dots measured roughly 10–16 CSS pixels across. Their
+  visible size is unchanged; transparent interaction circles now track canvas
+  resize and measure at least 25 CSS pixels across in desktop and narrow-view
+  browser checks. The Editing tips disclosures and narrow warning trigger also
+  have larger targets. Keyboard point movement still works after this change.
+- Dense custom outlines can put enlarged point targets close together or overlap
+  on a phone. A future direct-manipulation review should test those cases with
+  touch and consider a point list or another precise-selection control.
+
+## Integral-fin editing follow-up
+
+- New custom fuselage profiles store the editable body points without baking in
+  the integral fin. The editor previews the assembled cutout; Fin Height, Fin
+  Root Chord, and Tail Position remain active in the Tail panel and update the
+  same contour used by 3D, print, and mass calculations.
+- Educational mode hides the separate fin-shape editor while the fin is cut with
+  the fuselage. Advanced STEM retains custom fin shaping, and a separately cut
+  fin still has its own editor and printed part.
+- Existing custom fuselage documents may already include a hand-shaped fin in
+  their saved nodes. They remain unchanged. The Tail panel identifies those
+  designs and directs users to edit the outline in Body rather than presenting
+  Fin Height and Fin Root Chord sliders that would have no effect. A future
+  migration could split a known fin region into parametric fin and body nodes,
+  but should not guess for an arbitrary hand-drawn outline.

@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import * as THREE from 'three';
 import { getFuselageCuts, subtractSheetCutouts } from './sheetCutouts';
-import { polygonArea, sampleSmoothClosedCurve, calculateWingPlanformPoints, calculateCustomWingPlanformPoints } from './core';
+import { polygonArea, calculateWingPlanformPoints, calculateCustomWingPlanformPoints } from './core';
 import { DEFAULT_GLIDER } from '@/constants/presets';
 import { createFuselageMesh, createHalfWingGeometry, createTailMesh } from './extrusion3d';
-import { getFuselageProfilePoints } from '@/physics/massBalance';
+import { getFuselageContourPoints } from '@/physics/massBalance';
 import { seedWingNodes } from './customWing';
 import { computeCustomSurfaceAerodynamics } from '@/physics/aerodynamics';
 import { analyzeGliderStability } from '@/physics/stability';
@@ -39,7 +39,7 @@ describe('sheet cut boundaries', () => {
   it.each([20, 36, 55, 90])('triangulates the full remaining fuselage after a %s mm tail-slot edit', lengthMm => {
     const g = structuredClone(DEFAULT_GLIDER);
     g.fuselage.tailSlot.lengthMm = lengthMm;
-    const contour = sampleSmoothClosedCurve(getFuselageProfilePoints(g), 8);
+    const contour = getFuselageContourPoints(g);
     const regions = subtractSheetCutouts(contour, getFuselageCuts(g));
     const expected = regions.reduce((a, r) => a + polygonArea(r.outline) - r.holes.reduce((b, h) => b + polygonArea(h), 0), 0);
     const material = new THREE.MeshBasicMaterial();

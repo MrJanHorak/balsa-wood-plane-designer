@@ -59,7 +59,7 @@ export const ValidationBadge: React.FC<ValidationBadgeProps> = ({ report }) => {
         aria-label={badgeText}
         aria-expanded={isOpen}
         aria-controls={isOpen ? 'design-check-details' : undefined}
-        className={`flex items-center gap-1.5 px-2.5 py-1 text-xs rounded-lg border font-medium transition-all shadow-sm ${badgeColor}`}
+        className={`flex min-h-8 items-center gap-1.5 px-2.5 py-1 text-xs rounded-lg border font-medium transition-all shadow-sm ${badgeColor}`}
         title="Check physical manufacturability, structural margins, and material fit"
       >
         {badgeIcon}
