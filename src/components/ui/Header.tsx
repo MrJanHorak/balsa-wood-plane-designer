@@ -16,6 +16,7 @@ interface HeaderProps {
   activeViewport: '3d' | '2d';
   designName: string;
   saveStatus: 'saved' | 'unsaved';
+  recoveryStatus: 'idle' | 'protected' | 'updating' | 'unavailable';
   validationReport?: ValidationReport;
   onSelectPreset: (preset: GliderDesign) => void;
   onToggleMode: (mode: UIMode) => void;
@@ -40,6 +41,7 @@ export const Header: React.FC<HeaderProps> = ({
   activeViewport,
   designName,
   saveStatus,
+  recoveryStatus,
   validationReport,
   onSelectPreset,
   onToggleMode,
@@ -76,7 +78,11 @@ export const Header: React.FC<HeaderProps> = ({
           <p className="max-w-[18rem] text-xs text-slate-300">
             <span className="block truncate sm:inline">{designName}</span>
             <span className="hidden sm:inline"> · </span>
-            <span className="block sm:inline">{saveStatus === 'unsaved' ? 'Current design unsaved' : 'Saved in this browser'}</span>
+            <span className="block sm:inline">{saveStatus === 'saved' ? 'Saved in this browser'
+              : recoveryStatus === 'idle' ? 'Starter preset · not saved'
+                : recoveryStatus === 'protected' ? 'Unsaved · recovery copy on this device'
+                : recoveryStatus === 'unavailable' ? 'Unsaved · recovery unavailable'
+                  : 'Unsaved · updating recovery copy'}</span>
           </p>
         </div>
       </div>

@@ -17,6 +17,10 @@ import {
   savePlaneDesignToLocalStorage,
 } from '@/design/storage';
 import { createDesignHistory, designHistoryReducer } from '@/design/history';
+import {
+  RecoveryDraft, clearRecoveryDraft, designContentSignature, isUntouchedStarter,
+  loadRecoveryDraft, needsDraftRecovery, saveRecoveryDraft,
+} from '@/design/recoveryDraft';
 import { createNamedVersion, loadNamedVersions, NamedDesignVersion, saveNamedVersions } from '@/design/versions';
 import { addFlightTest, removeFlightTest } from '@/design/flightTests';
 import { Header } from '@/components/ui/Header';
@@ -26,6 +30,7 @@ import { TelemetryCard } from '@/components/ui/TelemetryCard';
 import { FlightTestPanel } from '@/components/ui/FlightTestPanel';
 import { FuselageProfileEditor } from '@/components/ui/FuselageProfileEditor';
 import { WingProfileEditor } from '@/components/ui/WingProfileEditor';
+import { RecoveryDraftDialog } from '@/components/ui/RecoveryDraftDialog';
 import { Glider3DViewport } from '@/components/viewport/Glider3DViewport';
 import { Pattern2DViewport } from '@/components/viewport/Pattern2DViewport';
 
@@ -41,17 +46,33 @@ export default function WorkbenchPage() {
   const [savedDocument, setSavedDocument] = useState<PlaneDesignDocument | null>(null);
   const [versions, setVersions] = useState<NamedDesignVersion[]>([]);
   const [persistenceMessage, setPersistenceMessage] = useState<string | null>(null);
+  const [recoveryState, setRecoveryState] = useState<'loading' | 'ready' | 'offer' | 'disabled'>('loading');
+  const [recoveryDraft, setRecoveryDraft] = useState<RecoveryDraft | null>(null);
+  const [recoveryError, setRecoveryError] = useState<string | null>(null);
+  const [draftSignature, setDraftSignature] = useState<string | null>(null);
+  const [draftWriteFailed, setDraftWriteFailed] = useState(false);
   const [customShapeEditorOpen, setCustomShapeEditorOpen] = useState(false);
   const [wingEditorOpen, setWingEditorOpen] = useState(false);
   const [tailEditorOpen, setTailEditorOpen] = useState(false);
   const [finEditorOpen, setFinEditorOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const sliderEditingRef = useRef(false);
+  const latestDesignRef = useRef(design);
+  const latestSavedRef = useRef(savedDocument);
 
   const glider = design.geometry;
   const matchingPreset = Object.values(GLIDER_PRESETS).find((preset) =>
     JSON.stringify({ ...glider, mode: preset.mode }) === JSON.stringify(preset));
-  const saveStatus = savedDocument && JSON.stringify(savedDocument) === JSON.stringify(design) ? 'saved' : 'unsaved';
+  const currentSignature = designContentSignature(design);
+  const saveStatus = savedDocument && designContentSignature(savedDocument) === currentSignature ? 'saved' : 'unsaved';
+  const recoveryStatus = draftWriteFailed || recoveryState === 'disabled' ? 'unavailable'
+    : !savedDocument && isUntouchedStarter(design, DEFAULT_GLIDER) ? 'idle'
+    : draftSignature === currentSignature ? 'protected' : 'updating';
+
+  useEffect(() => {
+    latestDesignRef.current = design;
+    latestSavedRef.current = savedDocument;
+  }, [design, savedDocument]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -60,8 +81,9 @@ export default function WorkbenchPage() {
       } catch (error) {
         setPersistenceMessage(error instanceof Error ? error.message : 'Unable to read saved versions.');
       }
+      let saved: PlaneDesignDocument | null = null;
       try {
-        const saved = loadPlaneDesignFromLocalStorage();
+        saved = loadPlaneDesignFromLocalStorage();
         if (saved) {
           dispatchHistory({ type: 'hydrate', document: saved });
           setSavedDocument(structuredClone(saved));
@@ -69,9 +91,77 @@ export default function WorkbenchPage() {
       } catch (error) {
         setPersistenceMessage(error instanceof Error ? error.message : 'Unable to read the current design.');
       }
+      try {
+        const draft = loadRecoveryDraft();
+        if (draft && needsDraftRecovery(draft, saved)) {
+          setRecoveryDraft(draft);
+          setRecoveryState('offer');
+        } else {
+          if (draft) clearRecoveryDraft();
+          setRecoveryState('ready');
+        }
+      } catch (error) {
+        setRecoveryError(error instanceof Error ? error.message : 'The recovery draft could not be read.');
+        setRecoveryState('offer');
+      }
     }, 0);
     return () => window.clearTimeout(timer);
   }, []);
+
+  useEffect(() => {
+    if (recoveryState !== 'ready') return;
+    const saved = savedDocument;
+    const shouldStore = saved
+      ? currentSignature !== designContentSignature(saved)
+      : !isUntouchedStarter(design, DEFAULT_GLIDER);
+    const timer = window.setTimeout(() => {
+      const latest = latestDesignRef.current;
+      const latestSaved = latestSavedRef.current;
+      if (designContentSignature(latest) !== currentSignature) return;
+      if (!shouldStore || (latestSaved && currentSignature === designContentSignature(latestSaved))) {
+        try {
+          clearRecoveryDraft();
+          setDraftSignature(null);
+          setDraftWriteFailed(false);
+        } catch {
+          // Keep the explicit save usable even if browser draft storage is blocked.
+        }
+        return;
+      }
+      try {
+        saveRecoveryDraft(latest);
+        setDraftSignature(currentSignature);
+        setDraftWriteFailed(false);
+        setPersistenceMessage((message) => message?.startsWith('Recovery copy could not be stored.') ? null : message);
+      } catch {
+        setDraftSignature(null);
+        setDraftWriteFailed(true);
+        setPersistenceMessage('Recovery copy could not be stored. Save or export your design before leaving.');
+      }
+    }, shouldStore ? 400 : 0);
+    return () => window.clearTimeout(timer);
+  }, [design, savedDocument, currentSignature, recoveryState]);
+
+  useEffect(() => {
+    const flush = () => {
+      if (recoveryState !== 'ready') return;
+      const current = latestDesignRef.current;
+      const saved = latestSavedRef.current;
+      if (saved ? designContentSignature(current) === designContentSignature(saved)
+        : isUntouchedStarter(current, DEFAULT_GLIDER)) {
+        try { clearRecoveryDraft(); } catch { /* The explicit save is still intact. */ }
+        return;
+      }
+      try { saveRecoveryDraft(current); } catch { /* The visible status reports storage failures. */ }
+    };
+    const onVisibilityChange = () => { if (document.visibilityState === 'hidden') flush(); };
+    window.addEventListener('pagehide', flush);
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    return () => {
+      window.removeEventListener('pagehide', flush);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    };
+  }, [recoveryState]);
 
   useEffect(() => {
     const finishSlider = () => {
@@ -113,7 +203,9 @@ export default function WorkbenchPage() {
   }, [glider, aeroReport]);
 
   const handleChange = (nextGlider: GliderDesign) => {
-    dispatchHistory({ type: 'change', document: updatePlaneDesignGeometry(design, nextGlider) });
+    const next = updatePlaneDesignGeometry(design, nextGlider);
+    latestDesignRef.current = next;
+    dispatchHistory({ type: 'change', document: next });
     setPersistenceMessage(null);
   };
 
@@ -135,10 +227,51 @@ export default function WorkbenchPage() {
     });
   };
 
+  const markBrowserSave = (document: PlaneDesignDocument) => {
+    latestSavedRef.current = document;
+    setSavedDocument(structuredClone(document));
+    try {
+      clearRecoveryDraft();
+      setDraftSignature(null);
+      setDraftWriteFailed(false);
+    } catch {
+      // The explicit save succeeded; a stale recovery draft will be compared
+      // with it on the next visit rather than silently replacing it.
+    }
+  };
+
+  const handleRestoreDraft = () => {
+    if (!recoveryDraft) return;
+    latestDesignRef.current = recoveryDraft.document;
+    dispatchHistory({ type: 'hydrate', document: recoveryDraft.document });
+    setDraftSignature(designContentSignature(recoveryDraft.document));
+    setRecoveryDraft(null);
+    setRecoveryError(null);
+    setRecoveryState('ready');
+    setPersistenceMessage('Unsaved changes restored from the recovery copy. Save when ready.');
+  };
+
+  const handleDiscardDraft = () => {
+    try {
+      clearRecoveryDraft();
+      setRecoveryDraft(null);
+      setRecoveryError(null);
+      setDraftSignature(null);
+      setRecoveryState('ready');
+      setPersistenceMessage(savedDocument ? 'Opened the last browser save.' : 'Started from the default preset.');
+    } catch {
+      setRecoveryDraft(null);
+      setRecoveryError(null);
+      setDraftWriteFailed(true);
+      setRecoveryState('disabled');
+      setPersistenceMessage('Recovery storage is unavailable. Save or export your design before leaving.');
+    }
+  };
+
   const handleSaveLocal = () => {
     try {
       savePlaneDesignToLocalStorage(design);
-      setSavedDocument(structuredClone(design));
+      markBrowserSave(design);
       setPersistenceMessage('Design saved in this browser.');
     } catch (error) {
       setPersistenceMessage(error instanceof Error ? error.message : 'Unable to save the design.');
@@ -154,7 +287,8 @@ export default function WorkbenchPage() {
       }
 
       dispatchHistory({ type: 'change', document: saved });
-      setSavedDocument(structuredClone(saved));
+      latestDesignRef.current = saved;
+      markBrowserSave(saved);
       setPersistenceMessage('Local design loaded.');
     } catch (error) {
       setPersistenceMessage(error instanceof Error ? error.message : 'Unable to load the saved design.');
@@ -178,6 +312,7 @@ export default function WorkbenchPage() {
 
     try {
       const imported = deserializePlaneDesign(await file.text());
+      latestDesignRef.current = imported;
       dispatchHistory({ type: 'change', document: imported });
       setPersistenceMessage(`Imported ${imported.metadata.name}.`);
     } catch (error) {
@@ -192,9 +327,10 @@ export default function WorkbenchPage() {
       saveNamedVersions(next);
       setVersions(next);
       dispatchHistory({ type: 'stampVersion', document: version.document });
+      latestDesignRef.current = version.document;
       try {
         savePlaneDesignToLocalStorage(version.document);
-        setSavedDocument(structuredClone(version.document));
+        markBrowserSave(version.document);
         setPersistenceMessage(`Saved version “${version.name}” and the current design.`);
       } catch {
         setPersistenceMessage(`Saved version “${version.name}”, but could not update the current-design save.`);
@@ -207,6 +343,7 @@ export default function WorkbenchPage() {
   };
 
   const handleRestoreVersion = (version: NamedDesignVersion) => {
+    latestDesignRef.current = version.document;
     dispatchHistory({ type: 'change', document: structuredClone(version.document) });
     setPersistenceMessage(`Restored “${version.name}”. You can undo this change.`);
   };
@@ -223,10 +360,11 @@ export default function WorkbenchPage() {
   };
 
   const saveFlightTestChange = (next: PlaneDesignDocument, message: string) => {
+    latestDesignRef.current = next;
     dispatchHistory({ type: 'change', document: next });
     try {
       savePlaneDesignToLocalStorage(next);
-      setSavedDocument(structuredClone(next));
+      markBrowserSave(next);
       setPersistenceMessage(message);
     } catch (error) {
       setPersistenceMessage(`Test updated, but browser storage failed: ${error instanceof Error ? error.message : 'please export or save the design.'}`);
@@ -286,6 +424,7 @@ export default function WorkbenchPage() {
         activeViewport={activeViewport}
         designName={design.metadata.name}
         saveStatus={saveStatus}
+        recoveryStatus={recoveryStatus}
         validationReport={validationReport}
         onSelectPreset={handleSelectPreset}
         onToggleMode={handleToggleMode}
@@ -368,6 +507,9 @@ export default function WorkbenchPage() {
       {wingEditorOpen && <WingProfileEditor glider={glider} onChange={handleChange} onClose={() => closeEditor('wing')} />}
       {tailEditorOpen && <WingProfileEditor surface="tail" glider={glider} onChange={handleChange} onClose={() => closeEditor('tail')} />}
       {finEditorOpen && <WingProfileEditor surface="fin" glider={glider} onChange={handleChange} onClose={() => closeEditor('fin')} />}
+      {recoveryState === 'offer' &&
+        <RecoveryDraftDialog draft={recoveryDraft} hasSavedDesign={Boolean(savedDocument)} error={recoveryError ?? undefined}
+          onRestore={handleRestoreDraft} onDiscard={handleDiscardDraft} />}
     </div>
   );
 }

@@ -28,6 +28,7 @@ Whether you're building a simple **slot-and-tab interlocking glider** for an ele
 * **🖨️ Scaled 1:1 Multi-Page PDF Exporter**: Generates vector patterns locked at 100% scale across standard A4/US Letter printer paper with alignment marks and physical calibration rulers.
 * **🌲 Wood Grain Awareness**: Designed specifically around physical balsa sheet stock dimensions (1/32", 1/16", 1/8") and grain constraints to prevent split wood.
 * **🎓 STEM & Classroom Friendly**: Made to be accessible to elementary students while staying grounded in real aerospace principles.
+* **💾 Design Recovery**: Unsaved edits are kept as a local browser recovery copy. On reopening, choose whether to restore them or keep the last explicit save; named versions and JSON exports remain separate checkpoints.
 
 ---
 

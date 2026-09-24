@@ -121,6 +121,10 @@
   fin and reserves the dedicated shape editor for separate fins or Advanced STEM.
   Older custom fuselages may already contain hand-edited fin points; they remain
   unchanged and show a message instead of offering ineffective fin size sliders.
+- Unsaved design edits now create a separate browser recovery draft. On reopening,
+  the user chooses whether to restore it or keep the last explicit save; malformed
+  drafts are left untouched until dismissed. Draft writes are paused during the
+  choice, and Save plus named versions remain deliberate checkpoints.
 - Fuselage mass and centroid now use the remaining sheet after slot subtraction.
   Physics, 3D, SVG and structural checks share physical cut definitions. Overlaps
   are removed once, boundary cuts become notches, and all remaining regions count.
@@ -143,7 +147,7 @@
   Entering custom mode preserves the elliptical shape, mesh, and balance report.
 - Cut-sheet bounds account for the sampled fuselage curve's extrema.
 
-Verification: 186 tests, including print tiling and export, flight-record persistence and history, wing-forming targets, analytical flat-wing relief, cambered root seam
+Verification: 194 tests, including recovery-draft validation, print tiling and export, flight-record persistence and history, wing-forming targets, analytical flat-wing relief, cambered root seam
 continuity, assembled surface samples inside the relieved slot, independent numerical camber arc-length checks,
 blank mass versus aerodynamic area, physical SVG units, export parts/escaping,
 pylon dimensions/moments, fit warnings, net sheet area/centroid and preset ballast
@@ -151,7 +155,7 @@ regressions, malformed imports, triangulated face-area checks across tail slot
 lengths, exact tail sheet thickness, disconnected cuts, elliptical/custom agreement,
 and camera projection checks in narrow and wide viewports. Browser checks cover
 tail chord edits, side view, framing, and structural feedback. The production build
-and TypeScript pass. Two pre-existing unused-variable lint warnings remain.
+and TypeScript pass. ESLint passes.
 Desktop browser checks cover the pattern notes and revised front-view assembly,
 including an 8% camber edit with dihedral.
 No browser console errors were reported. The in-app browser did not expose an SVG
@@ -178,8 +182,7 @@ needs a manual check in a normal browser/CAM application.
 
 Maintenance: npm audit reports the pre-existing moderate Vitest/@vitest/mocker
 advisory GHSA-82fw-gwwq-j7x9 in test tooling. Upgrade and verify Vitest separately;
-no jsPDF dependency advisory was reported by this audit. Two unused-variable lint
-warnings also remain. Browser PDF controls were exercised in the production build;
+no jsPDF dependency advisory was reported by this audit. Browser PDF controls were exercised in the production build;
 the in-app browser's saved-download confirmation remains unavailable.
 
 Older architecture and implementation plans describe historical limitations; this

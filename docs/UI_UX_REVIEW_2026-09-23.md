@@ -151,3 +151,17 @@ inside version and flight-test records.
   Fin Height and Fin Root Chord sliders that would have no effect. A future
   migration could split a known fin region into parametric fin and body nodes,
   but should not guess for an arbitrary hand-drawn outline.
+
+## Unsaved-work recovery follow-up
+
+- Changes write a separate recovery copy in this browser after a short pause;
+  hiding or closing the page flushes pending changes. The header distinguishes
+  an explicit browser save from an unsaved design with a recovery copy.
+- When the recovery copy differs from the last explicit save, startup offers
+  Restore or Discard before editing resumes. Restoring does not overwrite the
+  saved checkpoint or named versions. Invalid recovery data is preserved until
+  the user chooses to discard it.
+- Recovery is local to the current browser and device. Portable JSON exports
+  remain the way to move or independently back up a design until account storage
+  exists. If browser storage is unavailable, the UI says so and still allows
+  manual Save or Export.
