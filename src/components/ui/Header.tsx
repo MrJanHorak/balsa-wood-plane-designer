@@ -3,7 +3,7 @@
 import React from 'react';
 import { GliderDesign, UIMode } from '@/types/glider';
 import { GLIDER_PRESETS } from '@/constants/presets';
-import { Plane, Box, Scissors, GraduationCap, Cpu, Layers } from 'lucide-react';
+import { Plane, Box, Scissors, GraduationCap, Cpu, Layers, Route } from 'lucide-react';
 import { ValidationReport } from '@/geometry/validation';
 import { ValidationBadge } from './ValidationBadge';
 import { DesignHistoryControls } from './DesignHistoryControls';
@@ -13,14 +13,14 @@ import { NamedDesignVersion } from '@/design/versions';
 interface HeaderProps {
   currentPresetId: string;
   mode: UIMode;
-  activeViewport: '3d' | '2d';
+  activeViewport: '3d' | '2d' | 'flight';
   designName: string;
   saveStatus: 'saved' | 'unsaved';
   recoveryStatus: 'idle' | 'protected' | 'updating' | 'unavailable';
   validationReport?: ValidationReport;
   onSelectPreset: (preset: GliderDesign) => void;
   onToggleMode: (mode: UIMode) => void;
-  onSelectViewport: (vp: '3d' | '2d') => void;
+  onSelectViewport: (vp: '3d' | '2d' | 'flight') => void;
   onSaveLocal: () => void;
   onLoadLocal: () => void;
   onExport: () => void;
@@ -138,6 +138,10 @@ export const Header: React.FC<HeaderProps> = ({
           >
             <Scissors className="w-3.5 h-3.5" />
             <span>2D Patterns</span>
+          </button>
+          <button type="button" onClick={() => onSelectViewport('flight')} aria-pressed={activeViewport === 'flight'}
+            className={`flex items-center gap-1.5 px-3 py-1 text-xs rounded font-medium transition-all ${activeViewport === 'flight' ? 'bg-cyan-500 text-slate-950 font-bold shadow' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'}`}>
+            <Route className="w-3.5 h-3.5" /><span>2D Flight</span>
           </button>
         </div>
       </div>

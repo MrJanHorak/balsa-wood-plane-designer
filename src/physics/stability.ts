@@ -35,7 +35,7 @@ export function analyzeGliderStability(glider: GliderDesign): GliderAeroReport {
   let statusBadgeText = 'Estimated Balance in Target Range';
   let educationalFeedback =
     'The estimated balance is in the target range for this model. This is a static balance check; trim, launch technique and construction also affect the flight.';
-  let pitchTendencyDescription = 'Estimated restoring pitch tendency; glide and trim are not simulated.';
+  let pitchTendencyDescription = 'Estimated restoring pitch tendency; pitch and trim response are not simulated.';
 
   if (staticMarginPercent < -2.0) {
     stabilityStatus = 'critically_tail_heavy';

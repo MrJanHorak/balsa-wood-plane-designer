@@ -23,7 +23,9 @@
   slight right pull and possible stall halfway through. Nose ballast changes
   clearly affected behavior. The builder confirmed that the flown wing was
   pulled straight through (about 0° dihedral) although the design specifies
-  9° per side. Actual build mass, ballast mass, CG, and camber remain unknown;
+  9° per side. The builder later reported 7.1 g before ballast and 9.1 g assembled
+  with 2.0 g clay; CG was judged close to the estimate but not measured in mm.
+  Camber remains unmeasured;
   see [the evidence review](FIRST_FLIGHT_ANALYSIS_2026-09-23.md).
 - Added a Build & flight tests panel. Observations, measured mass/CG/ballast,
   launch height and distance stay with the design JSON, local save, named
@@ -31,9 +33,20 @@
   a throw result, not a steady-glide L/D measurement.
 - The uncalibrated numeric glide-ratio and stall-speed heuristics are no longer
   shown as flight predictions. The app still reports geometry, mass and estimated
-  static balance. Calibration and a bounded flight simulator remain future work.
+  static balance. A bounded 2D point-mass flight explorer now shows how launch
+  settings affect a side-view trajectory for any preset or custom design. It
+  defaults to mass calculated from the selected balsa density, cut parts, and
+  ballast. A recorded mass can be selected explicitly. Wing loading, Reynolds
+  number, required lift coefficient, and a thin-airfoil camber estimate update
+  with the design. Design wing incidence sets the initial fixed angle-of-attack
+  assumption. Profile drag, maximum lift, span efficiency, trim, and launch
+  conditions remain assumptions, so modeled range is labeled exploratory. See
+  [aerodynamic model notes](AERODYNAMIC_MODEL.md) for equations and limits.
+- The 2D Flight tab can share a text summary or download a PNG flight card. A
+  reproducible design link and hosted social gallery still need persistence and
+  a compact public design representation.
 - Pattern preview, SVG, and PDF assembly guidance now state the wing forming
-  targets and explain that pulling the wing straight through leaves it flat.
+  targets and explain that pulling the wing straight through leaves no dihedral.
 
 ## Print and preview feedback (September 23)
 
@@ -166,7 +179,7 @@ needs a manual check in a normal browser/CAM application.
 
 1. **Measure the real build:** record mass, nose ballast, CG, as-built wing
    shape, and repeated throws. The first print's calibration and tile alignment
-   passed; the first flight used a flat wing despite a 9° dihedral setting.
+   passed; the first flight had about 0° dihedral despite a 9° design setting.
    Use these results to decide whether ballast, trim, forming, or the design
    geometry needs revision.
 2. **Manufacturing refinements:** verify insertion paths and custom-fin attachment
@@ -176,9 +189,10 @@ needs a manual check in a normal browser/CAM application.
    quarter-chord aerodynamic center, lift slope, and downwash remain low-order
    models. Use repeatable flight results to bound uncertainty before treating
    any trajectory or performance readout as a prediction.
-4. **Educational flight testing:** build a bounded longitudinal simulation after
-   establishing its force/moment assumptions; add guided challenges and shareable
-   links later. Full VLM/XFOIL, flow simulation and built-up structures remain future work.
+4. **Educational flight testing:** use the bounded 2D explorer to compare launch
+   settings, then add pitch/trim dynamics when repeatable flights provide calibration
+   data. Add guided challenges and reproducible shareable design links later. Full
+   VLM/XFOIL, flow simulation and built-up structures remain future work.
 
 Maintenance: npm audit reports the pre-existing moderate Vitest/@vitest/mocker
 advisory GHSA-82fw-gwwq-j7x9 in test tooling. Upgrade and verify Vitest separately;

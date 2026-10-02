@@ -9,7 +9,7 @@ and [assembly photos](implementation_status_files/20260923_140629.jpg).
 | --- | --- | --- |
 | Print | Letter at 100%; 50 × 10 mm reference | Reference measured 50 × 10 mm; parts aligned at tile joins. |
 | Main wing | 285 mm span, 9° dihedral per half, 8% mean camber | Builder pulled the wing straight through: approximately 0° dihedral. Actual camber is unknown. |
-| Weight and balance | 7.10 g total including 1.71 g design nose ballast; CG 107.7 mm from nose, neutral point 112.1 mm | Actual mass, ballast mass and CG unknown. Different temporary weights produced noticeably different results. |
+| Weight and balance | 7.10 g total including 1.71 g design nose ballast; CG 107.7 mm from nose, neutral point 112.1 mm | Builder reports 7.1 g airframe plus 2.0 g dried clay, or 9.1 g assembled. Balance appeared close to the estimated location but was not measured in millimeters. Different temporary weights produced noticeably different results. |
 | Flight | App formerly displayed a 13.9:1 glide-ratio heuristic | Approx. 4.29 m travel from 1.77 m release height; slight right pull and a possible mid-flight stall. |
 
 The observed **distance divided by release height is about 2.42**. That is a
@@ -19,6 +19,13 @@ steady descent. NASA's [glider trajectory discussion](https://www1.grc.nasa.gov/
 derives the height/distance relation for steady flight. The app's old 13.9:1
 readout came from a simple aspect-ratio/camber heuristic, not from measured
 drag or a trim solution. We should not tune that formula to one throw.
+
+The measured 7.1 g airframe agrees numerically with the earlier **7.10 g total**
+estimate, but those are different quantities. The assembled plane is about
+2.0 g heavier than the saved design's total estimate (9.1 g versus 7.10 g).
+The clay amount is close to the 1.71 g ballast estimate. Without a scale
+breakdown of the unballasted parts and a measured CG location, neither the
+material density nor the balance estimate is validated yet.
 
 The design's 9° dihedral corresponds to roughly **22 mm tip rise** over each
 142.5 mm half-span. The builder confirmed that the wing was instead pulled
@@ -39,10 +46,11 @@ establish that the plane is trimmed or will avoid a stall.
 
 ## Most useful next test
 
-1. Measure finished mass, actual nose clay mass, and balance point from the nose.
+1. Measure the balance point from the nose in millimeters and, if practical,
+   weigh the airframe without the 2.0 g clay separately.
    Check whether the wing and tail sit squarely and whether the wing has any
    camber or twist. A side-on photo against a ruler can help measure camber
-   and wing/tail incidence. Record the known flat as-built wing in the app.
+   and wing/tail incidence. Record the observed near-zero dihedral in the app.
 2. With one unchanged trim setting and similar gentle throws in calm air, record
    five distances from the same release height. Note whether it first climbs,
    stays level, or dives, and whether it turns the same way each time.

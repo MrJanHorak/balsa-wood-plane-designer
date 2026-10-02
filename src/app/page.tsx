@@ -33,6 +33,7 @@ import { WingProfileEditor } from '@/components/ui/WingProfileEditor';
 import { RecoveryDraftDialog } from '@/components/ui/RecoveryDraftDialog';
 import { Glider3DViewport } from '@/components/viewport/Glider3DViewport';
 import { Pattern2DViewport } from '@/components/viewport/Pattern2DViewport';
+import { Flight2DViewport } from '@/components/viewport/Flight2DViewport';
 
 function createDefaultDocument(): PlaneDesignDocument {
   return createPlaneDesignDocument(DEFAULT_GLIDER);
@@ -42,7 +43,7 @@ export default function WorkbenchPage() {
   const [history, dispatchHistory] = useReducer(designHistoryReducer, undefined, () => createDesignHistory(createDefaultDocument()));
   const design = history.present;
   const mode = design.geometry.mode;
-  const [activeViewport, setActiveViewport] = useState<'3d' | '2d'>('3d');
+  const [activeViewport, setActiveViewport] = useState<'3d' | '2d' | 'flight'>('3d');
   const [savedDocument, setSavedDocument] = useState<PlaneDesignDocument | null>(null);
   const [versions, setVersions] = useState<NamedDesignVersion[]>([]);
   const [persistenceMessage, setPersistenceMessage] = useState<string | null>(null);
@@ -472,8 +473,10 @@ export default function WorkbenchPage() {
         <div className="relative order-first h-[55vh] min-h-80 w-full overflow-hidden bg-slate-950 md:col-span-2 xl:order-none xl:h-full xl:min-h-0 xl:min-w-0 xl:flex-1">
           {activeViewport === '3d' ? (
             <Glider3DViewport glider={glider} aeroReport={aeroReport} />
-          ) : (
+          ) : activeViewport === '2d' ? (
             <Pattern2DViewport glider={glider} />
+          ) : (
+            <Flight2DViewport glider={glider} report={aeroReport} tests={design.flightTests ?? []} />
           )}
         </div>
 

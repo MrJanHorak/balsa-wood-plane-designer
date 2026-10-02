@@ -23,7 +23,10 @@ actually happened, even if it differs from the app's estimate.
 - Any cracked or fragile bridges, awkward insertion path, or trouble attaching the
   fin? Mark the location on a photo if possible:
 - Assembled mass (g), nose ballast added (g), and measured balance point from the
-  nose (mm). Include the app's estimated mass/CG if available:
+  nose (mm). Include the app's estimated mass/CG if available: Mass of tyhe plane is 7.1 grams, nose weight I have is dried playdoh weighing 2g the balance point seems to line up with the estimated one on the site.
+  Clarification on October 1: 7.1 g is the plane before clay; assembled total is
+  **9.1 g including 2.0 g clay**. The balance point was judged by alignment, not
+  measured from the nose in millimeters.
 
 ## Flight record
 
@@ -33,7 +36,7 @@ changing the design between throws; separate each change into a new record.
 - Launch height (m), approximate launch speed or effort, and wind conditions:
 - Distances flown over 3–5 attempts (m), including any immediate stalls or dives: distance aprox 429cm always from about177cm height. Slight tendency to pull to the right and it seems to stall not glide at about half way.
 - Observed pitch behavior: steady / nose-down / nose-up then stall / repeated
-  oscillation / other. Note whether it rolled or turned consistently:
+  oscillation / other. Note whether it rolled or turned consistently: The flight path depends a lot on the angle my hand is in when I let go. In calm no breeze conditions it flew and then glided a bit. 20 to 30 feet in best conditions.
 - Adjustments between trials (ballast, wing/tail incidence, bend, trim), with
   before-and-after result: I tried with different weights, paper clips, one large one small, that was too light, two pennies to the front were too heavy. A rubber pencil top eraser on the tip was ok. In the end I put playdoh on it to balance out the weight.
 - What did the app predict, and what differed most from the real plane?

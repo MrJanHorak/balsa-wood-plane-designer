@@ -51,7 +51,7 @@ export const TelemetryCard: React.FC<TelemetryCardProps> = ({ aeroReport, mode }
       </div>
 
       <p className="rounded-lg border border-cyan-900/60 bg-cyan-950/30 p-2.5 text-xs leading-relaxed text-cyan-100/90">
-        Flight distance and stall speed are not predicted yet. The current model checks geometry and estimated static balance; use Build &amp; flight tests to record what the assembled plane does.
+        Flight distance and stall speed are not calibrated predictions. Use 2D Flight to explore a hand launch, and Build &amp; flight tests to record what the assembled plane does.
       </p>
 
       {/* Advanced STEM Details */}
